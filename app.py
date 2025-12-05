@@ -9,7 +9,7 @@ import requests
 # ------------------------------------------------------------
 @st.cache_resource
 def load_model():
-    model = joblib.load("fire_risk_model.pkl")
+    model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
     columns = joblib.load("feature_columns.pkl")
     return model, scaler, columns
