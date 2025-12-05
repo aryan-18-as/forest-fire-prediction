@@ -109,5 +109,3 @@ if st.button("Predict Fire Risk"):
     st.subheader("📊 Input Data Used")
     st.json(df.to_dict(orient="records"))
 
-
-give you all code please improve it's ui-ux make it look beautiful 
