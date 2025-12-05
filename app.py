@@ -129,6 +129,9 @@ if st.button("Predict Fire Risk"):
     }])
 
     # ⚠ ORDER EXACTLY AS feature_columns.pkl
+   
+    st.write("API DF Columns:", df.columns.tolist())
+
     df = df[feature_cols]
 
     # 5️⃣ SCALE + PREDICT
