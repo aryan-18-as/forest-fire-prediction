@@ -4,30 +4,26 @@ import pandas as pd
 import joblib
 import numpy as np
 
-# -----------------------------------------------------------
-# 🔐 DIRECT API KEYS INSIDE CODE (Replace with yours)
-# -----------------------------------------------------------
-OPENCAGE_KEY = "95df23a7370340468757cad17a479691"    # <---- Put your key
-# No Ninja API needed
+# ------------------------------
+# DIRECT API KEY
+# ------------------------------
+OPENCAGE_KEY = "95df23a7370340468757cad17a479691"  # PUT HERE
 
-# -----------------------------------------------------------
-# LOAD MODEL + SCALER + ENCODER + FEATURE COLUMNS
-# -----------------------------------------------------------
+# ------------------------------
+# LOAD MODEL + SCALER
+# ------------------------------
 @st.cache_resource
 def load_model():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder = joblib.load("encoder.pkl")
     feature_cols = joblib.load("feature_columns.pkl")
-    return model, scaler, encoder, feature_cols
+    return model, scaler, feature_cols
 
+model, scaler, feature_cols = load_model()
 
-model, scaler, encoder, feature_cols = load_model()
-
-
-# -----------------------------------------------------------
-# GEOCODING API (OpenCage)
-# -----------------------------------------------------------
+# ------------------------------
+# GEOCODE FOREST → LAT/LON
+# ------------------------------
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_KEY}"
     resp = requests.get(url).json()
@@ -39,10 +35,9 @@ def geocode_forest(name):
     lon = resp["results"][0]["geometry"]["lng"]
     return lat, lon
 
-
-# -----------------------------------------------------------
-# WEATHER API (Open-Meteo)
-# -----------------------------------------------------------
+# ------------------------------
+# WEATHER API
+# ------------------------------
 def fetch_weather(lat, lon):
     url = (
         f"https://api.open-meteo.com/v1/forecast?"
@@ -59,25 +54,21 @@ def fetch_weather(lat, lon):
         "wind_speed": cur.get("wind_speed_10m", 2),
     }
 
-
-# -----------------------------------------------------------
-# SIMPLE NDVI API (fallback)
-# -----------------------------------------------------------
+# ------------------------------
+# NDVI API (fallback)
+# ------------------------------
 def fetch_ndvi(lat, lon):
     try:
-        url = f"https://api.spectator.earth/ndvi?lat={lat}&lon={lon}"
-        r = requests.get(url).json()
+        r = requests.get(f"https://api.spectator.earth/ndvi?lat={lat}&lon={lon}").json()
         return r.get("ndvi", 0.5)
     except:
         return 0.5
 
-
-# -----------------------------------------------------------
-# SIMPLE LANDCOVER USING NDVI
-# -----------------------------------------------------------
+# ------------------------------
+# SIMPLE LANDCOVER (Your model expects raw string)
+# ------------------------------
 def fetch_landcover(lat, lon):
     ndvi = fetch_ndvi(lat, lon)
-
     if ndvi > 0.6:
         return "Evergreen Forest"
     elif ndvi > 0.4:
@@ -86,100 +77,69 @@ def fetch_landcover(lat, lon):
         return "Grassland"
     return "Cropland"
 
-
-# -----------------------------------------------------------
-# ELEVATION API
-# -----------------------------------------------------------
+# ------------------------------
+# ELEVATION
+# ------------------------------
 def fetch_elevation(lat, lon):
     try:
-        url = f"https://api.opentopodata.org/v1/test-dataset?locations={lat},{lon}"
-        r = requests.get(url).json()
+        r = requests.get(f"https://api.opentopodata.org/v1/test-dataset?locations={lat},{lon}").json()
         return r["results"][0]["elevation"]
     except:
         return 200
 
-
-# -----------------------------------------------------------
+# ------------------------------
 # STREAMLIT UI
-# -----------------------------------------------------------
-st.title("🔥 AI-Based Forest Fire Risk Prediction (Live API Version)")
-st.write("Predict fire risk for ANY forest worldwide using live climate data.")
+# ------------------------------
+st.title("🔥 AI Based Forest Fire Risk Predictor (Final Stable Version)")
 
-forest_name = st.text_input("🌳 Enter Forest Name (Example: Sundarbans, Amazon, Jim Corbett)")
+forest_name = st.text_input("🌳 Enter Forest Name")
 
-if st.button("Predict Fire Risk", use_container_width=True):
-
-    if forest_name.strip() == "":
-        st.error("❌ Please enter a forest name.")
-        st.stop()
+if st.button("Predict Fire Risk"):
 
     # 1️⃣ GEOCODE
     lat, lon = geocode_forest(forest_name)
     if lat is None:
-        st.error("❌ Unable to locate forest. Try a different name.")
+        st.error("Forest not found.")
         st.stop()
-
-    st.success(f"📍 Coordinates Found: {lat}, {lon}")
 
     # 2️⃣ WEATHER
     w = fetch_weather(lat, lon)
 
-    # 3️⃣ NDVI / LANDCOVER / ELEVATION
+    # 3️⃣ OTHER FEATURES
     ndvi = fetch_ndvi(lat, lon)
     landcover = fetch_landcover(lat, lon)
     elevation = fetch_elevation(lat, lon)
 
-    # DEFAULT VALUES (SAFE)
-    population = 50
-    slope = 10
-    forest_cover = 50
-    drought_code = 100
-    fwi_score = 0
-
-    # 4️⃣ BUILD DATAFRAME
-    df_api = pd.DataFrame([{
-        "latitude": lat,
-        "longitude": lon,
-        "temperature": w["temperature"],
-        "humidity": w["humidity"],
-        "precip": w["precip"],
-        "wind_speed": w["wind_speed"],
-        "ndvi": ndvi,
-        "elevation": elevation,
-        "slope": slope,
-        "population_density": population,
-        "forest_cover_pct": forest_cover,
-        "drought_code": drought_code,
-        "fwi_score": fwi_score,
-        "landcover_class": landcover
+    # 4️⃣ CONSTRUCT EXACT FEATURE SET EXPECTED BY MODEL
+    df = pd.DataFrame([{
+        'latitude': lat,
+        'longitude': lon,
+        'temperature_c': w["temperature"],
+        'precip_mm': w["precip"],
+        'humidity_pct': w["humidity"],
+        'wind_speed_m_s': w["wind_speed"],
+        'fwi_score': 0,              # default value
+        'drought_code': 100,         # default
+        'ndvi': ndvi,
+        'forest_cover_pct': 50,      # default
+        'landcover_class': landcover,  # RAW STRING (NO ENCODING)
+        'elevation_m': elevation,
+        'slope_deg': 10,             # default
+        'population_density': 50     # default
     }])
 
-    # 5️⃣ RENAME TO MATCH TRAINING
-    df = df_api.rename(columns={
-        "temperature": "temperature_c",
-        "humidity": "humidity_pct",
-        "wind_speed": "wind_speed_m_s",
-        "elevation": "elevation_m",
-        "slope": "slope_deg",
-        "precip": "precip_mm",
-    })
-
-    # 6️⃣ ENCODE LANDCOVER
-    df["landcover_class_encoded"] = encoder.transform(df[["landcover_class"]])
-    df = df.drop(columns=["landcover_class"])
-
-    # 7️⃣ ALIGN COLUMN ORDER
+    # ⚠ ORDER EXACTLY AS feature_columns.pkl
     df = df[feature_cols]
 
-    # 8️⃣ SCALE + PREDICT
+    # 5️⃣ SCALE + PREDICT
     df_scaled = scaler.transform(df)
+
     pred = model.predict(df_scaled)[0]
     prob = model.predict_proba(df_scaled)[0][1]
 
-    # 9️⃣ RESULT
+    # RESULT DISPLAY
     st.subheader("📊 Prediction Result")
-
     if pred == 1:
-        st.error(f"🔥 HIGH FIRE RISK (Probability: {prob:.2f})")
+        st.error(f"🔥 HIGH FIRE RISK — Probability: {prob:.2f}")
     else:
-        st.success(f"🌿 LOW FIRE RISK (Probability: {prob:.2f})")
+        st.success(f"🌿 LOW FIRE RISK — Probability: {prob:.2f}")
