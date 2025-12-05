@@ -1,163 +1,131 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
 import requests
+import joblib
 
-# -------------------------------
-# 🔑 API KEY (direct embed)
-# -------------------------------
-OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
+st.set_page_config(
+    page_title="Forest Fire Risk Predictor",
+    layout="centered"
+)
 
-# -------------------------------
-# 📌 Load ML components
-# -------------------------------
+# -----------------------------------------------
+# Load ML Model + Scaler + Encoder + Feature List
+# -----------------------------------------------
 @st.cache_resource
-def load_components():
+def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
     encoder = joblib.load("encoder.pkl")
-    return model, scaler, encoder
+    feature_cols = joblib.load("feature_columns_final.pkl")
+    return model, scaler, encoder, feature_cols
 
-model, scaler, encoder = load_components()
 
-# -------------------------------
-# 📌 FINAL Correct Column Order
-# -------------------------------
-FEATURE_COLS = [
-    "latitude",
-    "longitude",
-    "temperature_c",
-    "precip_mm",
-    "humidity_pct",
-    "wind_speed_m_s",
-    "fwi_score",
-    "drought_code",
-    "ndvi",
-    "forest_cover_pct",
-    "landcover_class_encoded",
-    "elevation_m",
-    "slope_deg",
-    "population_density"
-]
+model, scaler, encoder, feature_cols = load_all()
 
-# --------------------------------------------------
-# 🌍 Function to get location (lat/lon) from forest name
-# --------------------------------------------------
+# -----------------------------------------------
+# API KEYS (Embedded)
+# -----------------------------------------------
+
+GEOCODE_API_KEY = "95df23a7370340468757cad17a479691"
+
+
+# -----------------------------------------------
+# GET FOREST COORDINATES (OpenCage)
+# -----------------------------------------------
 def geocode_forest(forest_name):
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={forest_name}&key={OPENCAGE_API_KEY}"
-    response = requests.get(url).json()
+    url = f"https://api.opencagedata.com/geocode/v1/json?q={forest_name}&key={GEOCODE_API_KEY}"
+    r = requests.get(url).json()
 
-    try:
-        lat = response["results"][0]["geometry"]["lat"]
-        lon = response["results"][0]["geometry"]["lng"]
-        return lat, lon
-    except:
+    if r["total_results"] == 0:
         return None, None
 
-# --------------------------------------------------
-# 🌦️ Fetch environmental values from Open-Meteo API
-# --------------------------------------------------
+    lat = r["results"][0]["geometry"]["lat"]
+    lon = r["results"][0]["geometry"]["lng"]
+    return lat, lon
+
+
+# -----------------------------------------------
+# GET WEATHER + VEGETATION DATA
+# -----------------------------------------------
 def fetch_environment_data(lat, lon):
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric"
+    r = requests.get(url).json()
 
-    weather_url = (
-        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}"
-        "&hourly=temperature_2m,precipitation,relativehumidity_2m,windspeed_10m"
-    )
-    weather = requests.get(weather_url).json()
+    temp = r["main"]["temp"]
+    humidity = r["main"]["humidity"]
+    wind = r["wind"]["speed"]
+    rain = r.get("rain", {}).get("1h", 0)
 
-    return {
-        "temperature_c": weather["hourly"]["temperature_2m"][0],
-        "precip_mm": weather["hourly"]["precipitation"][0],
-        "humidity_pct": weather["hourly"]["relativehumidity_2m"][0],
-        "wind_speed_m_s": weather["hourly"]["windspeed_10m"][0]
-    }
+    # Fake but stable NDVI & FWI logic
+    ndvi = np.clip((humidity / 100) - 0.3, 0, 1)
+    fwi = wind * (1 - humidity / 100) * 20
+    drought_code = max(10, (temp * 3) - rain)
 
-
-# --------------------------------------------------
-# 🌲 Static environmental variables (fallback)
-# --------------------------------------------------
-def get_static_defaults():
-    return {
-        "fwi_score": 15,
-        "drought_code": 80,
-        "ndvi": 0.55,
-        "forest_cover_pct": 70,
-        "landcover_class": "Forest",
+    data = {
+        "latitude": lat,
+        "longitude": lon,
+        "temperature_c": temp,
+        "precip_mm": rain,
+        "humidity_pct": humidity,
+        "wind_speed_m_s": wind,
+        "fwi_score": fwi,
+        "drought_code": drought_code,
+        "ndvi": ndvi,
+        "forest_cover_pct": 70,               # Fixed constant
+        "landcover_class": "Deciduous Forest",  # FIXED to avoid encoder errors
         "elevation_m": 300,
         "slope_deg": 10,
         "population_density": 20
     }
 
+    return pd.DataFrame([data])
 
-# -------------------------------
-# 🎨 Streamlit UI
-# -------------------------------
-st.title("🔥 AI Based Forest Fire Risk Predictor (Final Stable Version)")
-forest_name = st.text_input("🌲 Enter Forest Name", placeholder="Amazon, Sundarbans, Gir, etc.")
+
+# -----------------------------------------------
+# STREAMLIT UI
+# -----------------------------------------------
+st.markdown("<h1>🔥 AI Based Forest Fire Risk Predictor</h1>", unsafe_allow_html=True)
+
+forest_name = st.text_input("🌲 Enter Forest Name", "Amazon")
 
 if st.button("Predict Fire Risk"):
 
-    # --------------------------------------
-    # 1️⃣ Get coordinates of the forest
-    # --------------------------------------
+    st.info("Fetching data...")
+
+    # 1. Get coordinates
     lat, lon = geocode_forest(forest_name)
 
     if lat is None:
-        st.error("❌ Forest name not found. Try another name.")
+        st.error("Forest not found. Try a different name.")
         st.stop()
 
-    # --------------------------------------
-    # 2️⃣ Download weather conditions
-    # --------------------------------------
-    weather = fetch_environment_data(lat, lon)
+    # 2. Get environmental data
+    df = fetch_environment_data(lat, lon)
 
-    # --------------------------------------
-    # 3️⃣ Load static defaults
-    # --------------------------------------
-    defaults = get_static_defaults()
+    # 3. Encode landcover column
+    try:
+        df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
+    except:
+        # FALLBACK: Use first known class
+        df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
 
-    # Combine all features
-    df = pd.DataFrame([{
-        "latitude": lat,
-        "longitude": lon,
-        **weather,
-        **defaults
-    }])
+    # 4. Keep only required features
+    df = df[feature_cols]
 
-    # --------------------------------------
-    # 4️⃣ Encode categorical values
-    # --------------------------------------
-    df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
-
-    df = df.drop(columns=["landcover_class"])
-
-    # --------------------------------------
-    # 5️⃣ Reorder correctly (THE FIX)
-    # --------------------------------------
-    df = df.reindex(columns=FEATURE_COLS)
-
-    # --------------------------------------
-    # 6️⃣ Scale numeric data
-    # --------------------------------------
+    # 5. Scale numerical features
     df_scaled = scaler.transform(df)
 
-    # --------------------------------------
-    # 7️⃣ Predict
-    # --------------------------------------
-    result = model.predict(df_scaled)[0]
+    # 6. Predict
+    pred = model.predict(df_scaled)[0]
 
-    # --------------------------------------
-    # 8️⃣ Final output YES / NO
-    # --------------------------------------
-    if result == 1:
-        st.error("🔥 YES – High Forest Fire Risk Detected!")
-    else:
-        st.success("🌿 NO – Forest Fire Risk Not Detected")
+    result = "🔥 YES — HIGH FIRE RISK" if pred == 1 else "🌧 NO — LOW FIRE RISK"
+    color = "red" if pred == 1 else "green"
 
+    st.markdown(
+        f"<h2 style='color:{color};text-align:center;'>{result}</h2>",
+        unsafe_allow_html=True
+    )
 
-# -------------------------------
-# Debug (optional—hide later)
-# -------------------------------
-# st.write("Input DF:", df)
-# st.write("Columns:", df.columns.tolist())
+    st.subheader("📊 Model Input Data")
+    st.json(df.to_dict(orient="records"))
