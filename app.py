@@ -4,87 +4,49 @@ import numpy as np
 import requests
 import joblib
 
-# ==========================================
-# 🌟 Page Config
-# ==========================================
-st.set_page_config(
-    page_title="AI Forest Fire Predictor",
-    page_icon="🔥",
-    layout="centered"
-)
+st.set_page_config(page_title="Forest Fire Predictor", layout="centered")
 
-# ==========================================
-# 🌟 Custom CSS for Modern UI
-# ==========================================
-st.markdown("""
-    <style>
-        .main-title {
-            font-size: 42px;
-            font-weight: bold;
-            text-align: center;
-            color: white;
-            background: linear-gradient(90deg, #ff512f, #dd2476);
-            padding: 18px;
-            border-radius: 10px;
-        }
-        .sub-card {
-            background-color: #ffffff;
-            padding: 18px;
-            border-radius: 12px;
-            box-shadow: 0px 4px 12px rgba(0,0,0,0.15);
-            margin-top: 20px;
-        }
-        .prediction-box {
-            padding: 25px;
-            border-radius: 12px;
-            font-size: 26px;
-            font-weight: bold;
-            text-align: center;
-            margin-top: 20px;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# -------------------------------
+# API KEY (Only OpenCage Needed)
+# -------------------------------
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"   # Your key
 
-# ==========================================
-# 🌟 Title
-# ==========================================
-st.markdown("<div class='main-title'>🔥 AI Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
-
-# ==========================================
-# 🔐 API KEY
-# ==========================================
-OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
-
-# ==========================================
-# 📦 Load ML Artifacts
-# ==========================================
+# -------------------------------
+# Load ML Files
+# -------------------------------
 @st.cache_resource
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
+    encoder = joblib.load("encoder.pkl")
     feature_cols = joblib.load("feature_columns_1.pkl")
-    return model, scaler, feature_cols
+    return model, scaler, encoder, feature_cols
 
-model, scaler, feature_cols = load_all()
+model, scaler, encoder, feature_cols = load_all()
 
-# ==========================================
-# 📍 Geocode Forest Name → Coordinates
-# ==========================================
-def geocode_forest(name):
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
+# -------------------------------
+# 1️⃣ Get coordinates
+# -------------------------------
+def geocode_forest(forest_name):
+    url = f"https://api.opencagedata.com/geocode/v1/json?q={forest_name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
+
     if r["total_results"] == 0:
         return None, None
-    return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
-# ==========================================
-# 🌦 Generate Environment Data (No API)
-# ==========================================
+    lat = r["results"][0]["geometry"]["lat"]
+    lon = r["results"][0]["geometry"]["lng"]
+    return lat, lon
+
+# -------------------------------
+# 2️⃣ Generate environment data (NO API)
+# -------------------------------
 def generate_environment(lat, lon):
-    temperature = 20 + abs(lat % 10)
-    humidity = 40 + abs(lon % 20)
-    wind_speed = 2 + (abs(lat + lon) % 5)
-    precip = abs(lat - lon) % 3
+    # safe static & math-based values
+    temperature = 20 + abs(lat % 10)         # 20–30
+    humidity = 40 + abs(lon % 20)            # 40–60
+    wind_speed = 2 + (abs(lat + lon) % 5)    # 2–7
+    precip = (abs(lat - lon) % 3)            # 0–3
 
     ndvi = np.clip(humidity / 100 - 0.3, 0, 1)
     fwi = wind_speed * (1 - humidity / 100) * 25
@@ -101,35 +63,36 @@ def generate_environment(lat, lon):
         "drought_code": drought_code,
         "ndvi": ndvi,
         "forest_cover_pct": 70,
-        "landcover_class": "Deciduous Forest",
+        "landcover_class": "Deciduous Forest",   # Encoder-safe
         "elevation_m": 300,
         "slope_deg": 12,
         "population_density": 18
     }])
 
-# ==========================================
-# 🌳 Input Card
-# ==========================================
-st.markdown("<div class='sub-card'>", unsafe_allow_html=True)
-st.subheader("🌲 Enter Forest Name for Prediction")
-forest_name = st.text_input("Forest Name", "Amazon")
-st.markdown("</div>", unsafe_allow_html=True)
+# -------------------------------
+# UI
+# -------------------------------
+st.title("🔥 AI Forest Fire Prediction (Final Version)")
+forest_name = st.text_input("🌲 Enter Forest Name", "Amazon")
 
-# ==========================================
-# 🔮 Predict Button
-# ==========================================
-if st.button("🔍 Predict Fire Risk", use_container_width=True):
+if st.button("Predict Fire Risk"):
 
-    # Get coordinates
     lat, lon = geocode_forest(forest_name)
     if lat is None:
-        st.error("❌ Forest not found. Try another name.")
+        st.error("Forest not found. Try another name.")
         st.stop()
 
-    # Generate environmental data
     df = generate_environment(lat, lon)
 
-    # Using raw landcover_class (NO encoding needed)
+    # Encode landcover
+    try:
+        df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
+    except:
+        df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
+
+    df = df.drop(columns=["landcover_class"])
+
+    # Correct Column Order
     df = df.reindex(columns=feature_cols)
 
     # Scale
@@ -138,22 +101,13 @@ if st.button("🔍 Predict Fire Risk", use_container_width=True):
     # Predict
     pred = model.predict(df_scaled)[0]
 
-    # =======================
-    # 🎨 Result UI
-    # =======================
     if pred == 1:
-        st.markdown(
-            "<div class='prediction-box' style='background:#ffcccc; color:#b30000;'>🔥 YES — High Fire Risk Detected!</div>",
-            unsafe_allow_html=True
-        )
+        st.error("🔥 YES — High Forest Fire Risk Detected")
     else:
-        st.markdown(
-            "<div class='prediction-box' style='background:#ccffcc; color:#006600;'>🌿 NO — Fire Risk Not Detected</div>",
-            unsafe_allow_html=True
-        )
+        st.success("🌿 NO — Fire Risk Not Detected")
 
-    # Show data card
-    st.markdown("<div class='sub-card'>", unsafe_allow_html=True)
-    st.subheader("📊 Environmental Data Used")
-    st.json(df.to_dict(orient="records")[0])
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.subheader("📊 Input Data Used")
+    st.json(df.to_dict(orient="records"))
+
+
+give you all code please improve it's ui-ux make it look beautiful 
