@@ -16,7 +16,7 @@ OPENCAGE_KEY = "95df23a7370340468757cad17a479691"  # PUT HERE
 def load_model():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    feature_cols = joblib.load("feature_columns.pkl")
+    feature_cols = joblib.load("feature_columns_final.pkl")
     return model, scaler, feature_cols
 
 model, scaler, feature_cols = load_model()
