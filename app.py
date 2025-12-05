@@ -9,7 +9,7 @@ st.set_page_config(page_title="Forest Fire Predictor", layout="centered")
 # -------------------------------
 # API KEY (Only OpenCage Needed)
 # -------------------------------
-OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691   # Your key
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"   # Your key
 
 # -------------------------------
 # Load ML Files
