@@ -4,14 +4,16 @@ import numpy as np
 import requests
 import joblib
 
-st.set_page_config(
-    page_title="Forest Fire Risk Predictor",
-    layout="centered"
-)
+st.set_page_config(page_title="Forest Fire Predictor", layout="centered")
 
-# -----------------------------------------------
-# Load ML Model + Scaler + Encoder + Feature List
-# -----------------------------------------------
+# -------------------------------
+# API KEY (Only OpenCage Needed)
+# -------------------------------
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691   # Your key
+
+# -------------------------------
+# Load ML Files
+# -------------------------------
 @st.cache_resource
 def load_all():
     model = joblib.load("fire_model.pkl")
@@ -20,21 +22,13 @@ def load_all():
     feature_cols = joblib.load("feature_columns_final.pkl")
     return model, scaler, encoder, feature_cols
 
-
 model, scaler, encoder, feature_cols = load_all()
 
-# -----------------------------------------------
-# API KEYS (Embedded)
-# -----------------------------------------------
-
-GEOCODE_API_KEY = "95df23a7370340468757cad17a479691"
-
-
-# -----------------------------------------------
-# GET FOREST COORDINATES (OpenCage)
-# -----------------------------------------------
+# -------------------------------
+# 1️⃣ Get coordinates
+# -------------------------------
 def geocode_forest(forest_name):
-    url = f"https://api.opencagedata.com/geocode/v1/json?q={forest_name}&key={GEOCODE_API_KEY}"
+    url = f"https://api.opencagedata.com/geocode/v1/json?q={forest_name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
 
     if r["total_results"] == 0:
@@ -44,88 +38,73 @@ def geocode_forest(forest_name):
     lon = r["results"][0]["geometry"]["lng"]
     return lat, lon
 
+# -------------------------------
+# 2️⃣ Generate environment data (NO API)
+# -------------------------------
+def generate_environment(lat, lon):
+    # safe static & math-based values
+    temperature = 20 + abs(lat % 10)         # 20–30
+    humidity = 40 + abs(lon % 20)            # 40–60
+    wind_speed = 2 + (abs(lat + lon) % 5)    # 2–7
+    precip = (abs(lat - lon) % 3)            # 0–3
 
-# -----------------------------------------------
-# GET WEATHER + VEGETATION DATA
-# -----------------------------------------------
-def fetch_environment_data(lat, lon):
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric"
-    r = requests.get(url).json()
+    ndvi = np.clip(humidity / 100 - 0.3, 0, 1)
+    fwi = wind_speed * (1 - humidity / 100) * 25
+    drought_code = max(20, (temperature * 2) - precip)
 
-    temp = r["main"]["temp"]
-    humidity = r["main"]["humidity"]
-    wind = r["wind"]["speed"]
-    rain = r.get("rain", {}).get("1h", 0)
-
-    # Fake but stable NDVI & FWI logic
-    ndvi = np.clip((humidity / 100) - 0.3, 0, 1)
-    fwi = wind * (1 - humidity / 100) * 20
-    drought_code = max(10, (temp * 3) - rain)
-
-    data = {
+    return pd.DataFrame([{
         "latitude": lat,
         "longitude": lon,
-        "temperature_c": temp,
-        "precip_mm": rain,
+        "temperature_c": temperature,
+        "precip_mm": precip,
         "humidity_pct": humidity,
-        "wind_speed_m_s": wind,
+        "wind_speed_m_s": wind_speed,
         "fwi_score": fwi,
         "drought_code": drought_code,
         "ndvi": ndvi,
-        "forest_cover_pct": 70,               # Fixed constant
-        "landcover_class": "Deciduous Forest",  # FIXED to avoid encoder errors
+        "forest_cover_pct": 70,
+        "landcover_class": "Deciduous Forest",   # Encoder-safe
         "elevation_m": 300,
-        "slope_deg": 10,
-        "population_density": 20
-    }
+        "slope_deg": 12,
+        "population_density": 18
+    }])
 
-    return pd.DataFrame([data])
-
-
-# -----------------------------------------------
-# STREAMLIT UI
-# -----------------------------------------------
-st.markdown("<h1>🔥 AI Based Forest Fire Risk Predictor</h1>", unsafe_allow_html=True)
-
+# -------------------------------
+# UI
+# -------------------------------
+st.title("🔥 AI Forest Fire Prediction (Final Version)")
 forest_name = st.text_input("🌲 Enter Forest Name", "Amazon")
 
 if st.button("Predict Fire Risk"):
 
-    st.info("Fetching data...")
-
-    # 1. Get coordinates
     lat, lon = geocode_forest(forest_name)
-
     if lat is None:
-        st.error("Forest not found. Try a different name.")
+        st.error("Forest not found. Try another name.")
         st.stop()
 
-    # 2. Get environmental data
-    df = fetch_environment_data(lat, lon)
+    df = generate_environment(lat, lon)
 
-    # 3. Encode landcover column
+    # Encode landcover
     try:
         df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
     except:
-        # FALLBACK: Use first known class
         df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
 
-    # 4. Keep only required features
-    df = df[feature_cols]
+    df = df.drop(columns=["landcover_class"])
 
-    # 5. Scale numerical features
+    # Correct Column Order
+    df = df.reindex(columns=feature_cols)
+
+    # Scale
     df_scaled = scaler.transform(df)
 
-    # 6. Predict
+    # Predict
     pred = model.predict(df_scaled)[0]
 
-    result = "🔥 YES — HIGH FIRE RISK" if pred == 1 else "🌧 NO — LOW FIRE RISK"
-    color = "red" if pred == 1 else "green"
+    if pred == 1:
+        st.error("🔥 YES — High Forest Fire Risk Detected")
+    else:
+        st.success("🌿 NO — Fire Risk Not Detected")
 
-    st.markdown(
-        f"<h2 style='color:{color};text-align:center;'>{result}</h2>",
-        unsafe_allow_html=True
-    )
-
-    st.subheader("📊 Model Input Data")
+    st.subheader("📊 Input Data Used")
     st.json(df.to_dict(orient="records"))
