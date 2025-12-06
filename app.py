@@ -20,7 +20,7 @@ st.markdown("""
 <style>
 
 body {
-    background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
+    background: radial-gradient(circle at top, #2b5876 0, #1b1b1b 45%, #000000 100%);
 }
 
 /* Animated Gradient Title */
@@ -36,12 +36,12 @@ body {
 
 /* Glass Card */
 .glass-card {
-    background: rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(14px);
     padding: 25px;
     border-radius: 18px;
-    border: 1px solid rgba(255,255,255,0.15);
-    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     margin-bottom: 25px;
 }
 
@@ -57,8 +57,8 @@ body {
 }
 
 @keyframes glow {
-    from { box-shadow: 0 0 10px #ff4646; }
-    to { box-shadow: 0 0 25px #ff0000; }
+    from { box-shadow: 0 0 12px #ff4646; }
+    to   { box-shadow: 0 0 28px #ff0000; }
 }
 
 /* Map Border */
@@ -70,31 +70,30 @@ body {
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background: #111;
-    color: white;
+    background: #050505;
+    color: #f0f0f0;
 }
 
 .sidebar-title {
     font-weight: 900;
     color: #ff4d4d;
-    font-size: 28px;
+    font-size: 26px;
     padding-bottom: 10px;
 }
 
 input {
     border-radius: 12px !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# API Key
+# CONSTANTS
 # ---------------------------------------------------------
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 
 # ---------------------------------------------------------
-# LOAD ALL MODELS
+# LOAD ALL ARTEFACTS
 # ---------------------------------------------------------
 @st.cache_resource
 def load_all():
@@ -106,21 +105,20 @@ def load_all():
 
 model, scaler, encoder, feature_cols = load_all()
 
-
 # ---------------------------------------------------------
-# GEOCODING
+# HELPERS
 # ---------------------------------------------------------
-def geocode_forest(name):
+def geocode_forest(name: str):
+    """Convert forest name to lat/lon using OpenCage."""
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
-    if r["total_results"] == 0:
+    if r.get("total_results", 0) == 0:
         return None, None
     return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
-# ---------------------------------------------------------
-# Generate environment data
-# ---------------------------------------------------------
-def generate_environment(lat, lon):
+
+def generate_environment(lat: float, lon: float) -> pd.DataFrame:
+    """Generate synthetic but realistic environmental features."""
     temperature = 20 + abs(lat % 10)
     humidity = 40 + abs(lon % 20)
     wind_speed = 2 + (abs(lat + lon) % 5)
@@ -148,90 +146,82 @@ def generate_environment(lat, lon):
     }])
 
 
+def run_model(df_env: pd.DataFrame):
+    """Encode + reindex + scale + predict."""
+    # Encode landcover
+    try:
+        df_env["landcover_class_encoded"] = encoder.transform(df_env["landcover_class"])
+    except Exception:
+        df_env["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
+
+    df_env = df_env.drop(columns=["landcover_class"])
+    df_env = df_env.reindex(columns=feature_cols)
+    df_scaled = scaler.transform(df_env)
+
+    pred = model.predict(df_scaled)[0]
+    # If model supports probability:
+    prob = None
+    if hasattr(model, "predict_proba"):
+        prob = model.predict_proba(df_scaled)[0][1]
+    return pred, prob, df_env
+
 # ---------------------------------------------------------
-# HEADER TITLE
+# LAYOUT
 # ---------------------------------------------------------
 st.markdown("<div class='title'>🔥 AI Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
 
 st.sidebar.markdown("<div class='sidebar-title'>⚡ Controls</div>", unsafe_allow_html=True)
-
-
-# ---------------------------------------------------------
-# USER INPUT
-# ---------------------------------------------------------
-forest_name = st.sidebar.text_input("🌲 Enter Forest Name", "Amazon")
-
+forest_name = st.sidebar.text_input("🌲 Forest Name", "Amazon")
 predict_btn = st.sidebar.button("🚀 Predict Fire Risk", use_container_width=True)
 
-# ---------------------------------------------------------
-# MAIN PREDICTION FLOW
-# ---------------------------------------------------------
+st.sidebar.markdown("----")
+st.sidebar.write("Made with ❤️ using Streamlit & ML")
+
 if predict_btn:
-
+    # 1. Geocode
     lat, lon = geocode_forest(forest_name)
-
     if lat is None:
         st.error("❌ Forest not found. Try another name.")
         st.stop()
 
-    df = generate_environment(lat, lon)
+    # 2. Generate env data
+    df_env = generate_environment(lat, lon)
 
-    # Encode
-    try:
-        df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
-    except:
-        df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
+    # 3. Run model
+    pred, prob, df_final = run_model(df_env)
 
-    df = df.drop(columns=["landcover_class"])
-
-    df = df.reindex(columns=feature_cols)
-
-    df_scaled = scaler.transform(df)
-
-    pred = model.predict(df_scaled)[0]
-
-    # ---------------------------------------------------------
-    # ROW 1 — MAP
-    # ---------------------------------------------------------
+    # --------- Map Card ----------
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    st.subheader("📍 Forest Location on Map")
+    st.subheader("📍 Forest Location")
     st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # ROW 2 — METRICS
-    # ---------------------------------------------------------
-    with st.container():
-        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-
-        col1, col2, col3, col4, col5 = st.columns(5)
-
-        col1.metric("🌡 Temperature", f"{df.temperature_c.values[0]} °C")
-        col2.metric("💧 Humidity", f"{df.humidity_pct.values[0]} %")
-        col3.metric("🌬 Wind Speed", f"{df.wind_speed_m_s.values[0]} m/s")
-        col4.metric("🌿 NDVI", round(df.ndvi.values[0], 2))
-        col5.metric("🔥 FWI Score", round(df.fwi_score.values[0], 2))
-
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ---------------------------------------------------------
-    # ROW 3 — PREDICTION OUTPUT
-    # ---------------------------------------------------------
-    if pred == 1:
-        st.markdown(
-            "<div class='prediction-box' style='background:#ff1a1a; color:white;'>🔥 HIGH FIRE RISK DETECTED</div>",
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            "<div class='prediction-box' style='background:#22cc88; color:white;'>🌿 LOW / NO FIRE RISK</div>",
-            unsafe_allow_html=True
-        )
-
-    # ---------------------------------------------------------
-    # ROW 4 — INPUT JSON PRETTY CARD
-    # ---------------------------------------------------------
+    # --------- Metrics Card ----------
     st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-    st.subheader("📊 Environment Data Used")
-    st.json(df.to_dict(orient="records")[0])
+    col1, col2, col3, col4, col5 = st.columns(5)
+    col1.metric("🌡 Temp", f"{df_final.temperature_c.values[0]:.1f} °C")
+    col2.metric("💧 Humidity", f"{df_final.humidity_pct.values[0]:.0f} %")
+    col3.metric("🌬 Wind", f"{df_final.wind_speed_m_s.values[0]:.1f} m/s")
+    col4.metric("🌿 NDVI", f"{df_final.ndvi.values[0]:.2f}")
+    col5.metric("🔥 FWI", f"{df_final.fwi_score.values[0]:.1f}")
     st.markdown("</div>", unsafe_allow_html=True)
+
+    # --------- Prediction Box ----------
+    if pred == 1:
+        box_html = "<div class='prediction-box' style='background:#ff1a1a; color:white;'>🔥 HIGH FIRE RISK DETECTED</div>"
+    else:
+        box_html = "<div class='prediction-box' style='background:#22cc88; color:white;'>🌿 LOW / NO FIRE RISK</div>"
+
+    st.markdown(box_html, unsafe_allow_html=True)
+
+    # --------- Input Data Card ----------
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.subheader("📊 Environment Data Used for Prediction")
+    st.json(df_final.to_dict(orient="records")[0])
+    if prob is not None:
+        st.caption(f"Estimated probability of fire (model output): **{prob*100:.2f}%**")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+else:
+    st.info("👈 Sidebar se forest name daal ke **Predict Fire Risk** pe click kar.")
+
