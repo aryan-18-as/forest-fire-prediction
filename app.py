@@ -193,7 +193,7 @@ if menu == "Prediction Dashboard":
 # PAGE 2: IMPORT OTHER PAGES
 # ---------------------------------------------------
 elif menu == "EDA Analytics":
-    import pages.eda_page as page
+    import pages.eda_pages as page
     page.run()
 
 elif menu == "Danger Calculator":
