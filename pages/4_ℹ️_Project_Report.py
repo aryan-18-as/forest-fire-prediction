@@ -40,7 +40,7 @@ Early prediction of forest fire risk based on environmental variables such as te
 
 ### 👨‍💻 Team / Credits
 - Major Project: Forest Fire Prediction  
-- Developed by: **[Your Name & Team]**  
-- Guided by: **[Guide / Faculty]**
+- Developed by: **[Aryan Saxena]**  
+- Guided by: **[Nidhi Dandotiya]**
 
 """)
