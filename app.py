@@ -14,11 +14,18 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------
-# CUSTOM CSS FOR PREMIUM UI + SIDEBAR
+# CUSTOM CSS (Premium)
 # ---------------------------------------------------
 st.markdown("""
 <style>
-/* Sidebar Design */
+
+/* Sidebar BG */
+[data-testid="stSidebar"] {
+    background: #1e1e1e;
+    color: white;
+}
+
+/* Sidebar Title */
 .sidebar-title {
     font-size: 28px;
     font-weight: 800;
@@ -27,25 +34,7 @@ st.markdown("""
     padding: 15px 0;
 }
 
-.sidebar-item {
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 10px;
-    font-size: 18px;
-    font-weight: 600;
-    color: white;
-    cursor: pointer;
-}
-
-.sidebar-item:hover {
-    background: #333333;
-}
-
-.active {
-    background: #ff4b2b !important;
-}
-
-/* Gradient Title */
+/* Gradient Main Title */
 .main-title {
     font-size: 48px;
     font-weight: 900;
@@ -56,29 +45,29 @@ st.markdown("""
     color: transparent;
 }
 
-/* Cards */
-.card {
-    padding: 20px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    margin-bottom: 20px;
-}
-
-/* Prediction Box */
-.pred-box {
-    font-size: 30px;
-    font-weight: bold;
-    text-align: center;
-    padding: 25px;
+/* Prediction Result Box */
+.pred-high {
+    padding: 28px;
     border-radius: 12px;
-    margin-top: 20px;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, #ff512f, #dd2476);
+    box-shadow: 0 4px 15px rgba(255, 0, 0, 0.35);
+    margin-top: 25px;
 }
 
-/* Sidebar BG */
-[data-testid="stSidebar"] {
-    background: #1e1e1e;
-    color: white;
+.pred-low {
+    padding: 28px;
+    border-radius: 12px;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 800;
+    color: #1b5e20;
+    background: linear-gradient(135deg, #b9f6ca, #69f0ae);
+    box-shadow: 0 4px 15px rgba(0, 200, 0, 0.25);
+    margin-top: 25px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -97,12 +86,13 @@ def load_all():
 model, scaler, encoder, feature_cols = load_all()
 
 # ---------------------------------------------------
-# API KEY
+# API KEYS
 # ---------------------------------------------------
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 
-# ------------------ HELPER FUNCTIONS ------------------
-
+# ---------------------------------------------------
+# HELPER FUNCTIONS
+# ---------------------------------------------------
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
@@ -184,13 +174,14 @@ if menu == "Prediction Dashboard":
         col2.metric("Humidity", f"{df.humidity_pct.values[0]}%")
         col3.metric("Wind", f"{df.wind_speed_m_s.values[0]} m/s")
 
+        # Premium styled prediction box
         if pred == 1:
-            st.markdown("<div class='pred-box' style='background:#ffcccc;'>FIRE RISK DETECTED</div>", unsafe_allow_html=True)
+            st.markdown("<div class='pred-high'>🔥 FIRE RISK DETECTED</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='pred-box' style='background:#ccffcc;'>NO FIRE RISK</div>", unsafe_allow_html=True)
+            st.markdown("<div class='pred-low'>🌿 NO FIRE RISK</div>", unsafe_allow_html=True)
 
 # ---------------------------------------------------
-# PAGE 2: IMPORT OTHER PAGES
+# PAGE IMPORTS
 # ---------------------------------------------------
 elif menu == "EDA Analytics":
     import pages.eda_pages as page
