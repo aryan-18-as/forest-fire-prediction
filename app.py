@@ -4,67 +4,98 @@ import numpy as np
 import requests
 import joblib
 
-# ---------------------------------------------------
+# ---------------------------------------------------------
 # PAGE CONFIG
-# ---------------------------------------------------
+# ---------------------------------------------------------
 st.set_page_config(
     page_title="AI Forest Fire Predictor",
-    layout="wide",
-    page_icon="🔥"
+    page_icon="🔥",
+    layout="wide"
 )
 
-# ---------------------------------------------------
-# CUSTOM CSS FOR PREMIUM UI
-# ---------------------------------------------------
+# ---------------------------------------------------------
+# PREMIUM CSS
+# ---------------------------------------------------------
 st.markdown("""
 <style>
-/* Gradient Title */
-.main-title {
-    font-size: 48px;
-    font-weight: 900;
-    text-align: center;
-    padding: 18px;
-    background: linear-gradient(90deg, #ff512f, #dd2476);
-    -webkit-background-clip: text;
-    color: transparent;
+
+body {
+    background: linear-gradient(135deg, #0f0f0f, #1a1a1a);
 }
 
-/* Cards */
-.card {
-    padding: 20px;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    margin-bottom: 20px;
+/* Animated Gradient Title */
+.title {
+    font-size: 52px;
+    font-weight: 900;
+    text-align: center;
+    background: linear-gradient(90deg, #ff8a00, #e52e71, #9b00ff);
+    -webkit-background-clip: text;
+    color: transparent;
+    padding: 20px 0px;
+}
+
+/* Glass Card */
+.glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px);
+    padding: 25px;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    margin-bottom: 25px;
 }
 
 /* Prediction Box */
-.pred-box {
-    font-size: 30px;
-    font-weight: bold;
-    text-align: center;
+.prediction-box {
+    font-size: 32px;
     padding: 25px;
-    border-radius: 12px;
-    margin-top: 20px;
+    font-weight: 700;
+    text-align: center;
+    border-radius: 16px;
+    margin-top: 15px;
+    animation: glow 1.7s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    from { box-shadow: 0 0 10px #ff4646; }
+    to { box-shadow: 0 0 25px #ff0000; }
+}
+
+/* Map Border */
+.stMap {
+    border-radius: 18px;
+    border: 2px solid #333;
+    overflow: hidden;
 }
 
 /* Sidebar */
 [data-testid="stSidebar"] {
-    background: #1e1e1e;
+    background: #111;
     color: white;
 }
+
+.sidebar-title {
+    font-weight: 900;
+    color: #ff4d4d;
+    font-size: 28px;
+    padding-bottom: 10px;
+}
+
+input {
+    border-radius: 12px !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
-
-# ---------------------------------------------------
-# API KEY
-# ---------------------------------------------------
+# ---------------------------------------------------------
+# API Key
+# ---------------------------------------------------------
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 
-# ---------------------------------------------------
-# LOAD MODEL FILES
-# ---------------------------------------------------
+# ---------------------------------------------------------
+# LOAD ALL MODELS
+# ---------------------------------------------------------
 @st.cache_resource
 def load_all():
     model = joblib.load("fire_model.pkl")
@@ -75,9 +106,10 @@ def load_all():
 
 model, scaler, encoder, feature_cols = load_all()
 
-# ---------------------------------------------------
+
+# ---------------------------------------------------------
 # GEOCODING
-# ---------------------------------------------------
+# ---------------------------------------------------------
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
@@ -85,9 +117,9 @@ def geocode_forest(name):
         return None, None
     return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
-# ---------------------------------------------------
-# ENVIRONMENT DATA GENERATOR
-# ---------------------------------------------------
+# ---------------------------------------------------------
+# Generate environment data
+# ---------------------------------------------------------
 def generate_environment(lat, lon):
     temperature = 20 + abs(lat % 10)
     humidity = 40 + abs(lon % 20)
@@ -116,17 +148,25 @@ def generate_environment(lat, lon):
     }])
 
 
-# ---------------------------------------------------
-# MAIN UI
-# ---------------------------------------------------
-st.markdown("<div class='main-title'>🔥 AI-Based Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
+# ---------------------------------------------------------
+# HEADER TITLE
+# ---------------------------------------------------------
+st.markdown("<div class='title'>🔥 AI Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
 
-forest_name = st.text_input("🌲 Enter Forest Name", "Amazon", placeholder="Enter any Forest Name…")
+st.sidebar.markdown("<div class='sidebar-title'>⚡ Controls</div>", unsafe_allow_html=True)
 
-# ---------------------------------------------------
-# RUN BUTTON
-# ---------------------------------------------------
-if st.button("🔍 Predict Fire Risk", use_container_width=True):
+
+# ---------------------------------------------------------
+# USER INPUT
+# ---------------------------------------------------------
+forest_name = st.sidebar.text_input("🌲 Enter Forest Name", "Amazon")
+
+predict_btn = st.sidebar.button("🚀 Predict Fire Risk", use_container_width=True)
+
+# ---------------------------------------------------------
+# MAIN PREDICTION FLOW
+# ---------------------------------------------------------
+if predict_btn:
 
     lat, lon = geocode_forest(forest_name)
 
@@ -134,10 +174,9 @@ if st.button("🔍 Predict Fire Risk", use_container_width=True):
         st.error("❌ Forest not found. Try another name.")
         st.stop()
 
-    # Generate data
     df = generate_environment(lat, lon)
 
-    # Encode landcover
+    # Encode
     try:
         df["landcover_class_encoded"] = encoder.transform(df["landcover_class"])
     except:
@@ -145,53 +184,54 @@ if st.button("🔍 Predict Fire Risk", use_container_width=True):
 
     df = df.drop(columns=["landcover_class"])
 
-    # Correct Columns
     df = df.reindex(columns=feature_cols)
 
-    # Scale
     df_scaled = scaler.transform(df)
 
-    # Predict
     pred = model.predict(df_scaled)[0]
 
-    # ---------------------------------------------------
-    # SHOW MAP
-    # ---------------------------------------------------
-    st.subheader("📍 Forest Location")
+    # ---------------------------------------------------------
+    # ROW 1 — MAP
+    # ---------------------------------------------------------
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.subheader("📍 Forest Location on Map")
     st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
+    st.markdown("</div>", unsafe_allow_html=True)
 
+    # ---------------------------------------------------------
+    # ROW 2 — METRICS
+    # ---------------------------------------------------------
+    with st.container():
+        st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------
-    # METRIC CARDS ROW
-    # ---------------------------------------------------
-    col1, col2, col3, col4, col5 = st.columns(5)
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    col1.metric("🌡️ Temperature", f"{df.temperature_c.values[0]} °C")
-    col2.metric("💧 Humidity", f"{df.humidity_pct.values[0]} %")
-    col3.metric("🌬️ Wind", f"{df.wind_speed_m_s.values[0]} m/s")
-    col4.metric("🌿 NDVI", round(df.ndvi.values[0], 2))
-    col5.metric("🔥 FWI Score", round(df.fwi_score.values[0], 2))
+        col1.metric("🌡 Temperature", f"{df.temperature_c.values[0]} °C")
+        col2.metric("💧 Humidity", f"{df.humidity_pct.values[0]} %")
+        col3.metric("🌬 Wind Speed", f"{df.wind_speed_m_s.values[0]} m/s")
+        col4.metric("🌿 NDVI", round(df.ndvi.values[0], 2))
+        col5.metric("🔥 FWI Score", round(df.fwi_score.values[0], 2))
 
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------
-    # PREDICTION BOX
-    # ---------------------------------------------------
+    # ---------------------------------------------------------
+    # ROW 3 — PREDICTION OUTPUT
+    # ---------------------------------------------------------
     if pred == 1:
         st.markdown(
-            "<div class='pred-box' style='background:#ffcccc; color:#b30000;'>🔥 HIGH FIRE RISK DETECTED</div>",
+            "<div class='prediction-box' style='background:#ff1a1a; color:white;'>🔥 HIGH FIRE RISK DETECTED</div>",
             unsafe_allow_html=True
         )
     else:
         st.markdown(
-            "<div class='pred-box' style='background:#ccffcc; color:#006600;'>🌿 LOW / NO FIRE RISK</div>",
+            "<div class='prediction-box' style='background:#22cc88; color:white;'>🌿 LOW / NO FIRE RISK</div>",
             unsafe_allow_html=True
         )
 
-
-    # ---------------------------------------------------
-    # INPUT DATA CARD
-    # ---------------------------------------------------
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.subheader("📊 Input Environmental Data Used")
+    # ---------------------------------------------------------
+    # ROW 4 — INPUT JSON PRETTY CARD
+    # ---------------------------------------------------------
+    st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+    st.subheader("📊 Environment Data Used")
     st.json(df.to_dict(orient="records")[0])
     st.markdown("</div>", unsafe_allow_html=True)
