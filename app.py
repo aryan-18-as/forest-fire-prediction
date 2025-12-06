@@ -184,17 +184,17 @@ if menu == "Prediction Dashboard":
 # PAGE IMPORTS
 # ---------------------------------------------------
 elif menu == "EDA Analytics":
-    import pages.eda_pages as page
+    import fire_pages.eda_page as page
     page.run()
 
 elif menu == "Danger Calculator":
-    import pages.danger_page as page
+    import fire_pages.danger_page as page
     page.run()
 
 elif menu == "Dataset Explorer":
-    import pages.dataset_page as page
+    import fire_pages.dataset_page as page
     page.run()
 
 elif menu == "Project Report":
-    import pages.report_page as page
+    import fire_pages.report_page as page
     page.run()
