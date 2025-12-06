@@ -3,4 +3,5 @@ requests
 pandas
 numpy
 scikit-learn
+seaborn
 joblib
