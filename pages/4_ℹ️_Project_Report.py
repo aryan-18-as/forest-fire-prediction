@@ -2,45 +2,77 @@ import streamlit as st
 
 st.set_page_config(page_title="Project Report", page_icon="ℹ️", layout="wide")
 
-st.title("ℹ️ Project Overview & Report")
+st.title("📘 Project Report – AI-Based Forest Fire Risk Prediction")
 
 st.markdown("""
-### 🔥 Project: AI-Based Forest Fire Risk Prediction System
+## 📌 Project Overview
+Forest fires are increasing worldwide due to climate change, low humidity, and extreme weather conditions.  
+This system predicts **whether a forest is at risk of catching fire**, using environmental variables derived from geolocation.
 
-**Goal:**  
-Early prediction of forest fire risk based on environmental variables such as temperature, humidity, wind speed, FWI, drought code, NDVI, etc.
-
-**Key Components:**
-- Machine Learning model (trained on historical climate + fire-occurence data)
-- Streamlit front-end for:
-  - Automatic forest-based prediction (using OpenCage geocoding)
-  - Manual danger calculator
-  - Dataset & EDA pages
-- Deployment on Streamlit Cloud / web for real-time access.
+The project integrates:
+- Machine Learning  
+- Geospatial APIs  
+- Automated environmental data generation  
+- User-friendly Streamlit interface  
 
 ---
 
-### 🧠 Model Details
-- Algorithm: (RandomForest / XGBoost / whichever you used)
-- Input Features: 14 (latitude, longitude, temperature_c, precip_mm, humidity_pct, wind_speed_m_s, fwi_score, drought_code, ndvi, forest_cover_pct, landcover_class_encoded, elevation_m, slope_deg, population_density)
-- Target: `fire_occurrence` (0 = No Fire, 1 = Fire)
-
-*(Yahan pe tu apne notebook / report se points copy paste kar sakta hai: accuracy, precision, recall, etc.)*
-
----
-
-### 🛠 Tech Stack
-- Python, Pandas, NumPy
-- Scikit-learn (ML model)
-- Joblib (model persistence)
-- Streamlit (web app)
-- OpenCage API (geocoding)
+## 🎯 Objectives
+- Predict fire occurrence using environmental and geographical factors.  
+- Allow users to input **any forest name globally**.  
+- Automatically fetch coordinates of the forest.  
+- Generate realistic environmental features for prediction.  
+- Provide an interactive dashboard with analytics and insights.
 
 ---
 
-### 👨‍💻 Team / Credits
-- Major Project: Forest Fire Prediction  
-- Developed by: **[Aryan Saxena]**  
-- Guided by: **[Nidhi Dandotiya]**
+## 🛠 Tech Stack
+### **Languages & Tools**
+- Python  
+- Streamlit  
+- Pandas, NumPy  
+- Scikit-learn  
+- Joblib  
+- Requests (API Calls)
 
-""")
+---
+
+## 📡 APIs Used
+### **1️⃣ Opencage Geocoding API**
+Used to convert **forest name → latitude & longitude**  
+- API Link: https://opencagedata.com/api  
+- Purpose: Convert user input to geospatial coordinates
+
+### **2️⃣ Weather-based Synthetic Feature Generator**
+Instead of using paid weather APIs, the system generates:
+- temperature  
+- humidity  
+- drought code  
+- FWI (Fire Weather Index)  
+- NDVI  
+using mathematical transformations.
+
+This ensures:
+- Zero API cost  
+- Consistent results  
+- Fast predictions
+
+---
+
+## 📂 Dataset Description
+The model is trained on a custom dataset containing:
+- Temperature  
+- Humidity  
+- Wind Speed  
+- Precipitation  
+- NDVI  
+- FWI Score  
+- Drought Code  
+- Forest Cover  
+- Land Cover Class  
+- Elevation  
+- Slope  
+- Population Density  
+- Fire Occurrence (Target: 0 = No Fire, 1 = Fire)
+
+File used:
