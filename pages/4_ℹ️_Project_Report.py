@@ -6,73 +6,150 @@ st.title("📘 Project Report – AI-Based Forest Fire Risk Prediction")
 
 st.markdown("""
 ## 📌 Project Overview
-Forest fires are increasing worldwide due to climate change, low humidity, and extreme weather conditions.  
-This system predicts **whether a forest is at risk of catching fire**, using environmental variables derived from geolocation.
-
-The project integrates:
-- Machine Learning  
-- Geospatial APIs  
-- Automated environmental data generation  
-- User-friendly Streamlit interface  
+This project predicts forest fire risk using environmental and geographical factors derived from forest coordinates.
+A machine learning model evaluates whether a forested region is likely to experience fire based on climate, vegetation, and terrain indicators.
 
 ---
 
 ## 🎯 Objectives
-- Predict fire occurrence using environmental and geographical factors.  
-- Allow users to input **any forest name globally**.  
-- Automatically fetch coordinates of the forest.  
-- Generate realistic environmental features for prediction.  
-- Provide an interactive dashboard with analytics and insights.
+- Predict forest fire occurrence using ML.  
+- Allow users to input any forest name globally.  
+- Automatically fetch latitude & longitude using a geocoding API.  
+- Generate environmental features for prediction.  
+- Provide an interactive dashboard with prediction, analytics, and dataset exploration.
 
 ---
 
-## 🛠 Tech Stack
-### **Languages & Tools**
+## 🛠 Technology Stack
+
+### Languages & Libraries
 - Python  
-- Streamlit  
-- Pandas, NumPy  
+- Pandas  
+- NumPy  
 - Scikit-learn  
+- Streamlit  
 - Joblib  
-- Requests (API Calls)
+- Requests  
+
+### Frontend/UI Framework
+- Streamlit (Multi-Page Dashboard)
 
 ---
 
 ## 📡 APIs Used
-### **1️⃣ Opencage Geocoding API**
-Used to convert **forest name → latitude & longitude**  
-- API Link: https://opencagedata.com/api  
-- Purpose: Convert user input to geospatial coordinates
 
-### **2️⃣ Weather-based Synthetic Feature Generator**
-Instead of using paid weather APIs, the system generates:
-- temperature  
-- humidity  
-- drought code  
-- FWI (Fire Weather Index)  
-- NDVI  
-using mathematical transformations.
+### 1️⃣ OpenCage Geocoding API
+Purpose: Convert **forest name → latitude & longitude**  
+API Link: https://opencagedata.com/api  
 
-This ensures:
-- Zero API cost  
-- Consistent results  
-- Fast predictions
+Used for fetching exact coordinates of forests worldwide.
 
 ---
 
 ## 📂 Dataset Description
-The model is trained on a custom dataset containing:
-- Temperature  
-- Humidity  
-- Wind Speed  
-- Precipitation  
-- NDVI  
-- FWI Score  
-- Drought Code  
-- Forest Cover  
-- Land Cover Class  
-- Elevation  
-- Slope  
-- Population Density  
-- Fire Occurrence (Target: 0 = No Fire, 1 = Fire)
+The dataset used for model training contains:
 
-File used:
+- temperature_c  
+- humidity_pct  
+- precip_mm  
+- wind_speed_m_s  
+- ndvi  
+- drought_code  
+- fwi_score  
+- forest_cover_pct  
+- landcover_class  
+- elevation_m  
+- slope_deg  
+- population_density  
+- fire_occurrence (Target: 0 = No Fire, 1 = Fire)
+
+---
+
+## 🤖 Machine Learning Model
+
+### Model Used: **Random Forest Classifier**
+
+### Why Random Forest?
+- High accuracy  
+- Suitable for environmental/climate features  
+- Handles non-linear relationships  
+- Robust & low overfitting  
+
+### Model Pipeline Contains:
+- Label Encoding  
+- Standard Scaling  
+- Column Alignment  
+- Random Forest Prediction  
+
+Saved files include:
+fire_model.pkl
+scaler.pkl
+encoder.pkl
+feature_columns.pkl
+
+
+---
+
+## 🔁 System Workflow
+
+User inputs forest name
+↓
+OpenCage API converts name → coordinates
+↓
+Environmental features are generated
+↓
+Features encoded & scaled
+↓
+Random Forest model predicts risk
+↓
+Result shown on UI (Fire / No Fire)
+
+
+
+---
+
+## 📊 Application Features
+
+### 1️⃣ Fire Risk Predictor  
+- Enter forest name  
+- Auto-fetch coordinates  
+- Map visualization  
+- Fire/No Fire prediction  
+
+### 2️⃣ EDA Analytics  
+- Dataset preview  
+- Correlation matrix  
+- Feature statistics  
+
+### 3️⃣ Danger Calculator  
+- Manual input mode for testing values  
+- Real-time prediction  
+
+### 4️⃣ Dataset Explorer  
+- Full dataset view  
+- Filter, scroll & inspect  
+
+---
+
+## 👥 Team Members
+
+| Name | Enrollment No. |
+|------|----------------|
+| **Aryan Saxena** | BETN1CS22163 |
+| **Amaan Haque** | BETN1CS22100 |
+| **Krishna Jain** | BETN1CS22179 |
+| **Kuldeep Rana** | BETN1CS22040 |
+
+---
+
+## 🧑‍🏫 Faculty Guide  
+**Nidhi Dandotiya**  
+Department of Computer Science & Engineering
+
+---
+
+## 📦 Conclusion
+This AI-powered system combines machine learning, geospatial intelligence, and synthetic climate modeling to create a reliable Forest Fire Risk Prediction tool.  
+It is scalable, fast, and suitable for real-world environmental risk assessment applications.
+
+""")
