@@ -11,8 +11,13 @@ from groq import Groq
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 GROQ_API_KEY = "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"
 
-# Initialize Groq client
-groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY != "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" else None
+# Initialize Groq client (FIXED LOGIC)
+groq_client = None
+if GROQ_API_KEY and GROQ_API_KEY != "YOUR_GROQ_API_KEY":
+    try:
+        groq_client = Groq(api_key=GROQ_API_KEY)
+    except:
+        groq_client = None
 
 
 # ============================================
@@ -69,12 +74,11 @@ st.markdown("""
 # ============================================
 @st.cache_resource
 def load_all():
-    return (
-        joblib.load("fire_model.pkl"),
-        joblib.load("scaler (2).pkl"),
-        joblib.load("encoder.pkl"),
-        joblib.load("feature_columns_1.pkl")
-    )
+    model = joblib.load("fire_model.pkl")
+    scaler = joblib.load("scaler (2).pkl")
+    encoder = joblib.load("encoder.pkl")
+    feature_cols = joblib.load("feature_columns_1.pkl")
+    return model, scaler, encoder, feature_cols
 
 model, scaler, encoder, feature_cols = load_all()
 
@@ -82,7 +86,6 @@ model, scaler, encoder, feature_cols = load_all()
 # ============================================
 # HELPER FUNCTIONS
 # ============================================
-
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
@@ -118,12 +121,12 @@ def generate_environment(lat, lon):
 
 
 # ============================================
-# AI USING GROQ
+# AI USING GROQ (LLAMA-3)
 # ============================================
-
 def groq_ai(prompt):
     if groq_client is None:
         return "AI unavailable – please add your Groq API key."
+
     try:
         r = groq_client.chat.completions.create(
             model="llama3-70b-8192",
@@ -153,35 +156,32 @@ def ai_recommend(pred):
 
 
 # ============================================
-# SIDEBAR NAVIGATION  (FIXED)
+# FIXED SIDEBAR NAVIGATION
 # ============================================
 with st.sidebar:
     st.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>", unsafe_allow_html=True)
-
     menu = st.radio(
         "Navigation",
         ["Prediction Dashboard", "EDA Analytics", "Danger Calculator", "Dataset Explorer", "Project Report"],
-        key="nav"
+        key="nav_selector"
     )
 
 
 # ============================================
 # PAGE: PREDICTION DASHBOARD
 # ============================================
-
 if menu == "Prediction Dashboard":
     st.markdown("<div class='main-title'>AI-Based Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
 
     forest = st.text_input("Enter Forest Name", "Amazon")
-    if st.button("Predict Fire Risk", use_container_width=True):
 
+    if st.button("Predict Fire Risk", use_container_width=True):
         lat, lon = geocode_forest(forest)
         if lat is None:
             st.error("Forest not found.")
             st.stop()
 
         df = generate_environment(lat, lon)
-
         df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
         df = df.drop(columns=["landcover_class"])
         df = df.reindex(columns=feature_cols)
@@ -190,10 +190,10 @@ if menu == "Prediction Dashboard":
 
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
-        col2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
-        col3.metric("Wind", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
+        c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
+        c3.metric("Wind", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
 
         st.markdown(
             "<div class='pred-high'>🔥 HIGH FIRE RISK</div>" if pred else
