@@ -13,7 +13,7 @@ def run():
     - **Amaan Haque (BETN1CS22100)**
     - **Kuldeep Rana (BETN1CS22040)**
 
-    **Guide:** *Ms. Nidhi Dandotiya*
+    **Guide:** *Dr.Manali Shukla*
 
     ---
 
