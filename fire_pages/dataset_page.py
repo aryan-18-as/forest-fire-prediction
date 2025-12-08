@@ -2,25 +2,25 @@ import streamlit as st
 import pandas as pd
 
 def run():
-
     st.title("🗂 Dataset Explorer")
-
-    st.markdown("Use this tool to explore, filter, and analyze the input dataset.")
 
     try:
         df = pd.read_csv("fire_dataset.csv")
     except:
-        st.error("Dataset 'fire_dataset.csv' not found. Upload it in project root.")
+        st.error("Dataset 'fire_dataset.csv' not found.")
         return
 
-    st.subheader("📄 Full Dataset")
+    st.subheader("Preview Dataset")
     st.dataframe(df)
 
-    st.subheader("🔍 Search / Filter")
-    col = st.selectbox("Select Column", df.columns)
-    val = st.text_input("Enter filter value")
+    st.subheader("Filter Columns")
+    cols = st.multiselect("Select columns to view", df.columns.tolist(), default=df.columns.tolist())
+    st.dataframe(df[cols])
 
-    if val:
-        filtered = df[df[col].astype(str).str.contains(val, case=False)]
-        st.write(f"Results Found: {filtered.shape[0]}")
-        st.dataframe(filtered)
+    st.subheader("Download Filtered Data")
+    st.download_button(
+        "Download CSV",
+        df.to_csv(index=False),
+        "filtered_dataset.csv",
+        "text/csv"
+    )
