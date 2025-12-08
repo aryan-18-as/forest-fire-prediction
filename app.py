@@ -8,21 +8,25 @@ import google.generativeai as genai
 # -----------------------------
 # GEMINI AI CONFIG
 # -----------------------------
-GEMINI_API_KEY = "AIzaSyABf2M3JM8aKzgUlyUCYzEOO7xwC4dpyew"   # your key
+GEMINI_API_KEY = "AIzaSyAgIYugXh-IpNsg9IpsjlItYz0fEmd5gec"
+
 genai.configure(api_key=GEMINI_API_KEY)
 model_gemini = genai.GenerativeModel("gemini-pro")
 
 # -----------------------------
 # PAGE CONFIG
 # -----------------------------
-st.set_page_config(page_title="AI Forest Fire Predictor", page_icon="🔥", layout="wide")
+st.set_page_config(
+    page_title="AI Forest Fire Predictor",
+    layout="wide",
+    page_icon="🔥"
+)
 
 # -----------------------------
-# GLOBAL CSS
+# CUSTOM CSS
 # -----------------------------
 st.markdown("""
 <style>
-
 [data-testid="stSidebar"] {
     background: #1e1e1e;
     color: white;
@@ -31,9 +35,9 @@ st.markdown("""
 .sidebar-title {
     font-size: 28px;
     font-weight: 800;
-    color: white;
     text-align: center;
     padding: 15px 0;
+    color: white;
 }
 
 .main-title {
@@ -52,10 +56,9 @@ st.markdown("""
     text-align: center;
     font-size: 32px;
     font-weight: 800;
-    color: white;
+    color: #fff;
     background: linear-gradient(135deg, #ff512f, #dd2476);
-    box-shadow: 0 4px 15px rgba(255,0,0,0.25);
-    margin-top: 25px;
+    margin-top: 20px;
 }
 
 .pred-low {
@@ -64,17 +67,15 @@ st.markdown("""
     text-align: center;
     font-size: 32px;
     font-weight: 800;
-    color: #16561F;
+    color: #145a32;
     background: linear-gradient(135deg, #b9f6ca, #69f0ae);
-    box-shadow: 0 4px 15px rgba(0,200,0,0.25);
-    margin-top: 25px;
+    margin-top: 20px;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------
-# LOAD MODEL FILES
+# LOAD ML FILES
 # -----------------------------
 @st.cache_resource
 def load_all():
@@ -86,9 +87,6 @@ def load_all():
 
 model, scaler, encoder, feature_cols = load_all()
 
-# -----------------------------
-# OTHER KEYS
-# -----------------------------
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 
 # -----------------------------
@@ -96,20 +94,21 @@ OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 # -----------------------------
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
-    res = requests.get(url).json()
-    if res["total_results"] == 0:
+    r = requests.get(url).json()
+    if r["total_results"] == 0:
         return None, None
-    return res["results"][0]["geometry"]["lat"], res["results"][0]["geometry"]["lng"]
+    return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
+
 
 def generate_environment(lat, lon):
     temperature = 20 + abs(lat % 10)
     humidity = 40 + abs(lon % 20)
-    wind_speed = 2 + (abs(lat + lon) % 5)
+    wind_speed = 2 + abs((lat + lon) % 5)
     precip = abs(lat - lon) % 3
-    
-    ndvi = np.clip(humidity/100 - 0.3, 0, 1)
-    fwi = wind_speed * (1 - humidity/100) * 25
-    drought_code = max(20, (temperature*2) - precip)
+
+    ndvi = np.clip(humidity / 100 - 0.3, 0, 1)
+    fwi = wind_speed * (1 - humidity / 100) * 25
+    drought_code = max(20, (temperature * 2) - precip)
 
     return pd.DataFrame([{
         "latitude": lat,
@@ -130,49 +129,53 @@ def generate_environment(lat, lon):
 
 
 # -----------------------------
-# GEMINI AI FUNCTIONS
+# AI EXPLANATIONS
 # -----------------------------
 def ai_fire_explanation(df, prediction, forest):
     info = df.to_dict(orient="records")[0]
     prompt = f"""
     Forest: {forest}
-    Prediction: {"High" if prediction == 1 else "Low"} Fire Risk
+    Prediction: {"High Fire Risk" if prediction == 1 else "Low Fire Risk"}
     Data: {info}
 
-    Write a 5–6 line expert explanation describing:
-    - Why this fire risk level was predicted
-    - Key contributing environmental factors
-    - Safety interpretation of values
-    - Meaningful insights about fire probability
+    Explain in 5–6 lines:
+    - Why this level was predicted
+    - Which environmental factors matter most
+    - How these values compare to typical risk patterns
     """
 
     try:
-        return model_gemini.generate_content(prompt).text
+        res = model_gemini.generate_content(prompt)
+        return res.text
     except:
         return "AI explanation unavailable."
 
 
 def ai_forest_profile(forest):
     prompt = f"""
-    Write a 4–6 line professional overview of the forest '{forest}' including:
-    - Climate 
+    Give a 5–6 line overview of '{forest}' including:
+    - Location
+    - Climate
     - Vegetation
     - Fire susceptibility
-    - Human interaction impacts
     """
+
     try:
-        return model_gemini.generate_content(prompt).text
+        res = model_gemini.generate_content(prompt)
+        return res.text
     except:
         return "Forest profile unavailable."
 
 
 def ai_recommendations(prediction):
     prompt = f"""
-    Fire risk: {"High" if prediction == 1 else "Low"}.
-    Give 5 practical, expert-level safety recommendations.
+    Fire risk: {"HIGH" if prediction == 1 else "LOW"}.
+    Give 5 practical fire safety recommendations.
     """
+
     try:
-        return model_gemini.generate_content(prompt).text
+        res = model_gemini.generate_content(prompt)
+        return res.text
     except:
         return "Recommendations unavailable."
 
@@ -180,16 +183,22 @@ def ai_recommendations(prediction):
 # -----------------------------
 # SIDEBAR MENU
 # -----------------------------
-st.sidebar.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>", unsafe_allow_html=True)
+st.sidebar.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>",
+                    unsafe_allow_html=True)
 
-menu = st.sidebar.radio("", ["Prediction Dashboard", "EDA Analytics", "Danger Calculator", "Dataset Explorer", "Project Report"])
+menu = st.sidebar.radio(
+    "",
+    ["Prediction Dashboard", "EDA Analytics",
+     "Danger Calculator", "Dataset Explorer", "Project Report"]
+)
 
 # -----------------------------
-# PAGE 1 — PREDICTION
+# MAIN PAGE — PREDICTION DASHBOARD
 # -----------------------------
 if menu == "Prediction Dashboard":
 
-    st.markdown("<div class='main-title'>Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>Forest Fire Risk Predictor</div>",
+                unsafe_allow_html=True)
 
     forest_name = st.text_input("Enter Forest Name", "Amazon")
 
@@ -209,36 +218,37 @@ if menu == "Prediction Dashboard":
 
         df = df.drop(columns=["landcover_class"])
         df = df.reindex(columns=feature_cols)
-        df_scaled = scaler.transform(df)
 
+        df_scaled = scaler.transform(df)
         pred = model.predict(df_scaled)[0]
 
-        # Show Map
         st.subheader("Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
-        # Metrics
         col1, col2, col3 = st.columns(3)
-        col1.metric("Temperature", f"{df.temperature_c.values[0]}°C")
-        col2.metric("Humidity", f"{df.humidity_pct.values[0]}%")
+        col1.metric("Temperature", f"{df.temperature_c.values[0]} °C")
+        col2.metric("Humidity", f"{df.humidity_pct.values[0]} %")
         col3.metric("Wind", f"{df.wind_speed_m_s.values[0]} m/s")
 
-        # Prediction Box
+        # Prediction UI
         if pred == 1:
-            st.markdown("<div class='pred-high'>🔥 FIRE RISK DETECTED</div>", unsafe_allow_html=True)
+            st.markdown("<div class='pred-high'>🔥 FIRE RISK DETECTED</div>",
+                        unsafe_allow_html=True)
         else:
-            st.markdown("<div class='pred-low'>🌿 NO FIRE RISK</div>", unsafe_allow_html=True)
+            st.markdown("<div class='pred-low'>🌿 NO FIRE RISK</div>",
+                        unsafe_allow_html=True)
 
-        # AI Sections
-        with st.expander("🌲 Forest Overview (AI)"):
-            st.write(ai_forest_profile(forest_name))
+        # -----------------------------
+        # AI OUTPUT
+        # -----------------------------
+        st.subheader("🌲 Forest Overview (AI)")
+        st.write(ai_forest_profile(forest_name))
 
         st.subheader("🧠 AI-Generated Explanation")
         st.write(ai_fire_explanation(df, pred, forest_name))
 
-        with st.expander("🛡 Safety Recommendations (AI)"):
+        with st.expander("♡ Safety Recommendations (AI)"):
             st.write(ai_recommendations(pred))
-
 
 # -----------------------------
 # OTHER PAGES
