@@ -74,7 +74,6 @@ Model & preprocessing files used:
 ## 👥 Team
 - **Aryan Saxena (BETN1CS22163)**  
 - **Amaan Haque (BETN1CS22100)**  
-- **Krishna Jain (BETN1CS22179)**  
 - **Kuldeep Rana (BETN1CS22040)**  
 
 ### Guide:
