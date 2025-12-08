@@ -4,34 +4,33 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 def run():
-    st.title("📊 Exploratory Data Analysis")
+    st.title("📊 EDA Analytics")
 
     try:
         df = pd.read_csv("fire_dataset.csv")
     except:
-        st.error("Dataset file 'fire_dataset.csv' not found.")
+        st.error("❌ Could not load fire_dataset.csv. Upload it to root directory.")
         return
 
-    st.subheader("Dataset Overview")
+    st.subheader("Dataset Preview")
     st.dataframe(df.head())
 
     st.subheader("Summary Statistics")
     st.write(df.describe())
 
-    st.subheader("Correlation Heatmap")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    sns.heatmap(df.corr(), annot=False, cmap="coolwarm", ax=ax)
-    st.pyplot(fig)
+    numeric_df = df.select_dtypes(include=['int64', 'float64'])
 
-    st.subheader("Distribution Plots")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        fig, ax = plt.subplots()
-        sns.histplot(df["temperature_c"], kde=True, ax=ax)
+    if numeric_df.empty:
+        st.warning("⚠ No numeric columns available for Correlation Heatmap.")
+    else:
+        st.subheader("Correlation Heatmap")
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.heatmap(numeric_df.corr(), cmap="coolwarm", annot=False, ax=ax)
         st.pyplot(fig)
 
-    with col2:
+    st.subheader("Feature Distributions")
+    for col in numeric_df.columns[:5]:
         fig, ax = plt.subplots()
-        sns.histplot(df["humidity_pct"], kde=True, ax=ax)
+        sns.histplot(df[col], kde=True, ax=ax)
+        ax.set_title(f"Distribution of {col}")
         st.pyplot(fig)
