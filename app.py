@@ -769,8 +769,8 @@ elif menu == "Project Report":
         page.run()
     except ImportError:
         st.error("Project Report page module not found (fire_pages/report_page.py).")
-"
-OPENCAGE_API_KEY = "YOUR_OPENCAGE_API_KEY_HERE"
+
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 
 # ---------------------------------------------------
 # PAGE CONFIG
