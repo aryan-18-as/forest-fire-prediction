@@ -8,8 +8,8 @@ from groq import Groq
 # ============================================
 # 🔐 INSERT YOUR API KEYS HERE
 # ============================================
-OPENCAGE_API_KEY = "YOUR_OPENCAGE_KEY"
-GROQ_API_KEY = "YOUR_GROQ_KEY"
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
+GROQ_API_KEY = "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"
 
 # Initialize Groq Client
 groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY != "YOUR_GROQ_KEY" else None
