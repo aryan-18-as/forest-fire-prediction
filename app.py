@@ -8,7 +8,7 @@ import google.generativeai as genai
 # -----------------------------
 # GEMINI AI CONFIG
 # -----------------------------
-GEMINI_API_KEY = "AIzaSyAgIYugXh-IpNsg9IpsjlItYz0fEmd5gec"   # your key
+GEMINI_API_KEY = "AIzaSyABf2M3JM8aKzgUlyUCYzEOO7xwC4dpyew"   # your key
 genai.configure(api_key=GEMINI_API_KEY)
 model_gemini = genai.GenerativeModel("gemini-pro")
 
