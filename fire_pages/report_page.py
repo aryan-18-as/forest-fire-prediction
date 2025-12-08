@@ -1,109 +1,62 @@
 import streamlit as st
 
 def run():
-
     st.title("📘 Project Report")
 
     st.markdown("""
-    ## AI-Based Forest Fire Prediction System  
-    *A Machine Learning Project for Predicting Forest Fire Risk*
+# **AI-Based Forest Fire Prediction System**
 
-    ### 👨‍💻 Team Members  
-    - **Aryan Saxena (BETN1CS22163)**
-    - **Amaan Haque (BETN1CS22100)**
-    - **Kuldeep Rana (BETN1CS22040)**
+## **1. Introduction**
+This project predicts forest fire risks using geolocation, environmental parameters, ML models, and AI explanations.
 
-    **Guide:** *Dr.Manali Shukla*
+---
 
-    ---
+## **2. Dataset**
+The dataset contains:
+- Temperature  
+- Humidity  
+- Wind Speed  
+- NDVI  
+- FWI Score  
+- Drought Code  
+- Vegetation & Terrain features  
 
-    ## 📂 1. Project Overview
+---
 
-    Forest fires cause massive ecological and economic damage.  
-    This project predicts the probability of a fire occurring in a forest using ML.
+## **3. Methodology**
+1. Data preprocessing  
+2. Feature scaling  
+3. Label encoding  
+4. ML Model: **Random Forest Classifier**  
+5. Synthetic environment generator  
+6. API Integration:
+   - OpenCage Geocoding
+   - Groq LLaMA 3.3 AI for explanations
 
-    Instead of manually entering parameters, the system automatically fetches:
+---
 
-    - Temperature  
-    - Humidity  
-    - Wind Speed  
-    - NDVI  
-    - Drought Index  
-    - Forest Cover  
-    - Geographic Elevation  
-    - Landcover Class  
+## **4. AI Features**
+- Forest overview generation  
+- Explanation of ML predictions  
+- Fire safety recommendations  
 
-    Based on these environmental features, the model predicts **fire or no fire**.
+---
 
-    ---
+## **5. Results**
+- High accuracy in predicting fire risk  
+- Useful explanations using LLaMA 3.3  
 
-    ## 🔧 2. Methodology
+---
 
-    ### **2.1 Data Processing**
-    - Missing values handled  
-    - Categorical label encoding  
-    - Feature scaling  
-    - Correlation analysis  
+## **6. Team Members**
+- **Aryan Saxena (BETN1CS22163)**  
+- **Amaan Haque (BETN1CS22100)**  
+- **Kuldeep Rana (BETN1CS22040)**  
 
-    ### **2.2 Model Training**
-    The following models were tested:
+**Guide:** Dr.Manali Shukla
 
-    - Random Forest  
-    - XGBoost  
-    - Logistic Regression  
-    - Gradient Boosting  
+---
 
-    **Random Forest** achieved the best accuracy and was selected.
-
-    ---
-
-    ## 🌐 3. External API Used
-
-    ### **OpenCage Geocoding API**  
-    - Converts forest names into coordinates  
-    - Used to generate environmental parameters  
-
-    No other external API required (OpenWeather was removed to reduce errors).
-
-    ---
-
-    ## 🖥 4. Application Workflow
-
-    1. User enters forest name  
-    2. App fetches latitude & longitude  
-    3. Auto-generates environmental features  
-    4. Applies encoding + feature scaling  
-    5. ML model predicts fire probability  
-    6. Shows location on map and risk level  
-
-    ---
-
-    ## 📌 5. Key Features
-
-    - Fully automated prediction  
-    - EDA dashboard  
-    - Custom danger calculator  
-    - Dataset explorer  
-    - Responsive UI  
-    - Professional multipage architecture  
-
-    ---
-
-    ## 📦 6. Files Included
-
-    - `app.py`  
-    - `fire_model.pkl`  
-    - `scaler (2).pkl`  
-    - `encoder.pkl`  
-    - `feature_columns_1.pkl`  
-    - `fire_dataset.csv`  
-    - `pages/` folder 
-
-    ---
-
-    ## 🏁 Conclusion
-
-    The system demonstrates how ML can support wildfire monitoring by providing
-    early warning signals based on environmental indicators.
-
+## **7. Conclusion**
+This system provides a complete AI + ML solution for early forest fire detection.
     """)
