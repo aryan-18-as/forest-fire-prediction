@@ -11,7 +11,6 @@ def run():
     ### 👨‍💻 Team Members  
     - **Aryan Saxena (BETN1CS22163)**
     - **Amaan Haque (BETN1CS22100)**
-    - **Krishna Jain (BETN1CS22179)**
     - **Kuldeep Rana (BETN1CS22040)**
 
     **Guide:** *Ms. Nidhi Dandotiya*
