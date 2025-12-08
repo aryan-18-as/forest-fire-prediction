@@ -22,7 +22,8 @@ from groq import Groq
 # ---------------------------------------------------
 # CONFIG: ADD YOUR KEYS HERE
 # ---------------------------------------------------
-GROQ_API_KEY = "# app.py
+GROQ_API_KEY = "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"
+
 
 import streamlit as st
 import pandas as pd
