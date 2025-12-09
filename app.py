@@ -59,8 +59,8 @@ st.markdown("""
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder = joblib.load("encoder.pkl")
-    feature_cols = joblib.load("feature_columns_1.pkl")
+    encoder = joblib.load("encoders.pkl")
+    feature_cols = joblib.load("feature_columns.pkl")
     return model, scaler, encoder, feature_cols
 
 model, scaler, encoder, feature_cols = load_all()
