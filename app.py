@@ -18,6 +18,7 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # ================================================================
 st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_icon="🔥")
 
+
 # ================================================================
 # LOAD ML FILES
 # ================================================================
@@ -25,14 +26,13 @@ st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_ic
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder_dict = joblib.load("encoders.pkl")      # your one-hot dictionary
+    encoder_dict = joblib.load("encoders.pkl")      # one-hot encoder dictionary
     feature_cols = joblib.load("feature_columns.pkl")
     return model, scaler, encoder_dict, feature_cols
 
 model, scaler, encoder_dict, feature_cols = load_all()
-
-# convert encoder dict → exact list of one-hot columns
 encoder_cols = list(encoder_dict.keys())
+
 
 # ================================================================
 # HELPER FUNCTIONS
@@ -43,6 +43,7 @@ def geocode_forest(name):
     if r.get("total_results", 0) == 0:
         return None, None
     return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
+
 
 def generate_environment(lat, lon):
     temp = 20 + abs(lat % 10)
@@ -69,15 +70,16 @@ def generate_environment(lat, lon):
         "population_density": 18
     }])
 
+
 # ================================================================
-# AI FUNCTIONS (Groq)
+# AI FUNCTIONS
 # ================================================================
 def groq_ai(prompt):
     try:
         resp = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role":"user","content":prompt}],
-            temperature=0.2
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.25
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
@@ -85,23 +87,23 @@ def groq_ai(prompt):
 
 
 def ai_forest_profile(forest):
-    return groq_ai(f"Give a 5-line overview about the forest '{forest}'.")
+    return groq_ai(f"Give a 5-line overview about '{forest}' including climate, region, vegetation & fire vulnerability.")
 
 
 def ai_fire_explanation(df, pred, forest):
     return groq_ai(
-        f"Explain in 5 lines why the prediction for forest '{forest}' is {'HIGH' if pred else 'LOW'} "
-        f"based on the data: {df.to_dict()}."
+        f"Explain in 5 lines why '{forest}' fire risk = {'HIGH' if pred else 'LOW'} using this data: {df.to_dict()}."
     )
+
 
 def ai_recommend(pred):
     return groq_ai(
-        f"Give 5 safety recommendations for {'high' if pred else 'low'} fire risk."
+        f"Give 5 safety recommendations for {'HIGH' if pred else 'LOW'} wildfire risk."
     )
 
 
 # ================================================================
-# FOREST LIST
+# FOREST LIST (Autocomplete)
 # ================================================================
 forest_list = [
     "Amazon Rainforest", "Sundarbans", "Jim Corbett Forest", "Gir Forest",
@@ -111,8 +113,9 @@ forest_list = [
     "Satpura Forest", "Periyar Forest", "Great Bear Rainforest"
 ]
 
+
 # ================================================================
-# SIDEBAR NAVIGATION
+# SIDEBAR NAV
 # ================================================================
 with st.sidebar:
     st.title("🔥 Fire Prediction Suite")
@@ -121,19 +124,26 @@ with st.sidebar:
         "Dataset Explorer", "Project Report"
     ])
 
+
 # ================================================================
 # PREDICTION DASHBOARD
 # ================================================================
 if menu == "Prediction Dashboard":
 
-    st.markdown("<div class='main-title'>AI-Based Forest Fire Predictor</div>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>", unsafe_allow_html=True)
 
-    # ================ PERFECT SEARCH + AUTOCOMPLETE ===================
-    typed = st.text_input("Search Forest Name")
+    # ================================================================
+    # SUPER CLEAN AUTOCOMPLETE SEARCH
+    # ================================================================
+    typed = st.text_input("Enter Forest Name", "", placeholder="Type 1–2 letters...")
 
-    suggestions = [f for f in forest_list if typed.lower() in f.lower()] if typed else forest_list
+    # dynamic filtered forests
+    if typed.strip():
+        matches = [f for f in forest_list if typed.lower() in f.lower()]
+    else:
+        matches = forest_list
 
-    forest = st.selectbox("Select Forest", suggestions)
+    forest = st.selectbox("Select Forest", matches)
 
     # ================================================================
     # PREDICT BUTTON
@@ -147,25 +157,26 @@ if menu == "Prediction Dashboard":
 
         df = generate_environment(lat, lon)
 
-        # ================ FIXED ONE-HOT ENCODING ===================
+        # One-hot encode
         df_oh = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
 
-        # ensure all columns exist
+        # Ensure all required one-hot columns exist
         for col in encoder_cols:
-            if col not in df_oh.columns:
+            if col not in df_oh:
                 df_oh[col] = 0
 
         df = pd.concat([df.drop(columns=["landcover_class"]), df_oh[encoder_cols]], axis=1)
 
         df = df.reindex(columns=feature_cols)
 
-        pred = int(model.predict(df)[0])
+        scaled = scaler.transform(df)
+        pred = int(model.predict(scaled)[0])
 
         # ============================================================
-        # OUTPUT UI
+        # OUTPUT VISUALS
         # ============================================================
-        st.subheader("📍 Location")
-        st.map(pd.DataFrame({"lat":[lat], "lon":[lon]}))
+        st.subheader("📍 Location on Map")
+        st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
         c1, c2, c3 = st.columns(3)
         c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
@@ -185,6 +196,7 @@ if menu == "Prediction Dashboard":
 
         with st.expander("♡ Safety Recommendations (AI)"):
             st.write(ai_recommend(pred))
+
 
 # ================================================================
 # OTHER PAGES
