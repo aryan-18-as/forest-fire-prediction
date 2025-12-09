@@ -18,7 +18,6 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # ================================================================
 st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_icon="🔥")
 
-
 # ================================================================
 # LOAD ML FILES
 # ================================================================
@@ -26,7 +25,7 @@ st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_ic
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder_dict = joblib.load("encoders.pkl")      # one-hot encoder dictionary
+    encoder_dict = joblib.load("encoders.pkl")
     feature_cols = joblib.load("feature_columns.pkl")
     return model, scaler, encoder_dict, feature_cols
 
@@ -50,8 +49,8 @@ def generate_environment(lat, lon):
     hum = 40 + abs(lon % 20)
     wind = 2 + (abs(lat + lon) % 5)
     precip = abs(lat - lon) % 3
-    ndvi = np.clip(hum/100 - 0.3, 0, 1)
-    fwi = wind * (1 - hum/100) * 25
+    ndvi = np.clip(hum / 100 - 0.3, 0, 1)
+    fwi = wind * (1 - hum / 100) * 25
 
     return pd.DataFrame([{
         "latitude": lat,
@@ -62,7 +61,7 @@ def generate_environment(lat, lon):
         "precip_mm": precip,
         "ndvi": ndvi,
         "fwi_score": fwi,
-        "drought_code": max(20, (temp*2)-precip),
+        "drought_code": max(20, (temp * 2) - precip),
         "forest_cover_pct": 70,
         "landcover_class": "Deciduous Forest",
         "elevation_m": 300,
@@ -87,12 +86,12 @@ def groq_ai(prompt):
 
 
 def ai_forest_profile(forest):
-    return groq_ai(f"Give a 5-line overview about '{forest}' including climate, region, vegetation & fire vulnerability.")
+    return groq_ai(f"Give a 5-line overview about '{forest}' including climate, region, vegetation and fire vulnerability.")
 
 
 def ai_fire_explanation(df, pred, forest):
     return groq_ai(
-        f"Explain in 5 lines why '{forest}' fire risk = {'HIGH' if pred else 'LOW'} using this data: {df.to_dict()}."
+        f"Explain in 5 lines why '{forest}' has a fire risk of {'HIGH' if pred else 'LOW'} based on this data: {df.to_dict()}."
     )
 
 
@@ -103,7 +102,7 @@ def ai_recommend(pred):
 
 
 # ================================================================
-# FOREST LIST (Autocomplete)
+# FOREST LIST
 # ================================================================
 forest_list = [
     "Amazon Rainforest", "Sundarbans", "Jim Corbett Forest", "Gir Forest",
@@ -115,7 +114,7 @@ forest_list = [
 
 
 # ================================================================
-# SIDEBAR NAV
+# SIDEBAR NAVIGATION
 # ================================================================
 with st.sidebar:
     st.title("🔥 Fire Prediction Suite")
@@ -132,12 +131,8 @@ if menu == "Prediction Dashboard":
 
     st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>", unsafe_allow_html=True)
 
-    # ================================================================
-    # SUPER CLEAN AUTOCOMPLETE SEARCH
-    # ================================================================
     typed = st.text_input("Enter Forest Name", "", placeholder="Type 1–2 letters...")
 
-    # dynamic filtered forests
     if typed.strip():
         matches = [f for f in forest_list if typed.lower() in f.lower()]
     else:
@@ -145,9 +140,6 @@ if menu == "Prediction Dashboard":
 
     forest = st.selectbox("Select Forest", matches)
 
-    # ================================================================
-    # PREDICT BUTTON
-    # ================================================================
     if st.button("Predict Fire Risk", use_container_width=True):
 
         lat, lon = geocode_forest(forest)
@@ -157,25 +149,21 @@ if menu == "Prediction Dashboard":
 
         df = generate_environment(lat, lon)
 
-        # One-hot encode
         df_oh = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
 
-        # Ensure all required one-hot columns exist
         for col in encoder_cols:
             if col not in df_oh:
                 df_oh[col] = 0
 
         df = pd.concat([df.drop(columns=["landcover_class"]), df_oh[encoder_cols]], axis=1)
 
-        df = df.reindex(columns=feature_cols)
+        # 🔥 THE MAIN FIX — MATCH SCALER COLUMNS EXACTLY
+        df = df.reindex(columns=scaler.feature_names_in_)     # <-- SOLVES YOUR ERROR
 
         scaled = scaler.transform(df)
         pred = int(model.predict(scaled)[0])
 
-        # ============================================================
-        # OUTPUT VISUALS
-        # ============================================================
-        st.subheader("📍 Location on Map")
+        st.subheader("📍 Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
         c1, c2, c3 = st.columns(3)
