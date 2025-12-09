@@ -5,27 +5,23 @@ import requests
 import joblib
 from groq import Groq
 
-# ============================================
-# 🔐 INSERT YOUR API KEYS HERE
-# ============================================
+# ================================================================
+# 🔐 API KEYS
+# ================================================================
 OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 GROQ_API_KEY = "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"
 
 # Initialize Groq Client
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# ============================================
-# STREAMLIT PAGE CONFIG
-# ============================================
-st.set_page_config(
-    page_title="AI Forest Fire Predictor",
-    page_icon="🔥",
-    layout="wide"
-)
+# ================================================================
+# PAGE CONFIG
+# ================================================================
+st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_icon="🔥")
 
-# ============================================
+# ================================================================
 # CUSTOM CSS
-# ============================================
+# ================================================================
 st.markdown("""
 <style>
 [data-testid="stSidebar"] { background:#1e1e1e; color:white; }
@@ -37,33 +33,28 @@ st.markdown("""
 .main-title {
     font-size:40px; font-weight:900; text-align:center;
     background:linear-gradient(90deg,#ff512f,#dd2476);
-    -webkit-background-clip:text; color:transparent;
-    padding:15px;
+    -webkit-background-clip:text; color:transparent; padding:15px;
 }
 
 .pred-high {
     padding:28px; border-radius:16px;
-    text-align:center; font-size:32px; font-weight:800;
-    color:white;
+    text-align:center; font-size:32px; font-weight:800; color:white;
     background:linear-gradient(135deg,#ff512f,#dd2476);
-    box-shadow:0 4px 18px rgba(255,60,60,0.45);
-    margin-top:25px;
+    box-shadow:0 4px 18px rgba(255,60,60,0.45); margin-top:25px;
 }
 
 .pred-low {
     padding:28px; border-radius:16px;
-    text-align:center; font-size:32px; font-weight:800;
-    color:#004d25;
+    text-align:center; font-size:32px; font-weight:800; color:#004d25;
     background:linear-gradient(135deg,#b9f6ca,#69f0ae);
-    box-shadow:0 4px 18px rgba(0,200,120,0.35);
-    margin-top:25px;
+    box-shadow:0 4px 18px rgba(0,200,120,0.35); margin-top:25px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================
+# ================================================================
 # LOAD ML FILES
-# ============================================
+# ================================================================
 @st.cache_resource
 def load_all():
     model = joblib.load("fire_model.pkl")
@@ -74,9 +65,9 @@ def load_all():
 
 model, scaler, encoder, feature_cols = load_all()
 
-# ============================================
+# ================================================================
 # HELPER FUNCTIONS
-# ============================================
+# ================================================================
 def geocode_forest(name):
     url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
@@ -85,23 +76,24 @@ def geocode_forest(name):
     return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
 def generate_environment(lat, lon):
-    temp = 20 + abs(lat % 10)
+    temperature = 20 + abs(lat % 10)
     humidity = 40 + abs(lon % 20)
     wind = 2 + (abs(lat + lon) % 5)
     precip = abs(lat - lon) % 3
+
     ndvi = np.clip(humidity/100 - 0.3, 0, 1)
     fwi = wind * (1 - humidity/100) * 25
 
     return pd.DataFrame([{
         "latitude": lat,
         "longitude": lon,
-        "temperature_c": temp,
+        "temperature_c": temperature,
         "humidity_pct": humidity,
         "wind_speed_m_s": wind,
         "precip_mm": precip,
         "ndvi": ndvi,
         "fwi_score": fwi,
-        "drought_code": max(20, (temp * 2) - precip),
+        "drought_code": max(20, (temperature*2)-precip),
         "forest_cover_pct": 70,
         "landcover_class": "Deciduous Forest",
         "elevation_m": 300,
@@ -109,15 +101,15 @@ def generate_environment(lat, lon):
         "population_density": 18
     }])
 
-# ============================================
-# AI FUNCTIONS USING GROQ
-# ============================================
+# ================================================================
+# AI FUNCTIONS (Groq)
+# ================================================================
 def groq_ai(prompt):
     try:
         resp = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
+            messages=[{"role":"user","content":prompt}],
+            temperature=0.2
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
@@ -125,68 +117,81 @@ def groq_ai(prompt):
 
 def ai_forest_profile(forest):
     return groq_ai(
-        f"Give a short 5-line overview of the forest '{forest}' including region, climate, vegetation, and fire vulnerability."
+        f"Give a 5-line overview about '{forest}' including climate, region, vegetation & fire vulnerability."
     )
 
 def ai_fire_explanation(df, pred, forest):
     return groq_ai(
-        f"Explain in 5 lines why '{forest}' has {'HIGH' if pred else 'LOW'} fire risk using this data: {df.to_dict()}"
+        f"Explain in 5 lines why '{forest}' fire risk is {'HIGH' if pred else 'LOW'} based on {df.to_dict()}."
     )
 
 def ai_recommend(pred):
     return groq_ai(
-        f"Give 5 bullet safety tips for {'HIGH' if pred else 'LOW'} fire risk forests."
+        f"Give 5 bullet-point safety recommendations for {'high' if pred else 'low'} fire risk."
     )
 
-# ============================================
-# SIDEBAR NAVIGATION
-# ============================================
-with st.sidebar:
-    st.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>", unsafe_allow_html=True)
-
-    menu = st.radio(
-        "Navigation",
-        ["Prediction Dashboard", "EDA Analytics", "Danger Calculator", "Dataset Explorer", "Project Report"],
-        key="navmenu"
-    )
-
-
-# ============================================
-# FOREST AUTO-SUGGEST LIST
-# ============================================
+# ================================================================
+# FOREST SUGGESTION LIST
+# ================================================================
 forest_list = [
     "Amazon Rainforest", "Sundarbans", "Jim Corbett Forest", "Gir Forest",
     "Black Forest", "Congo Rainforest", "Daintree Rainforest",
-    "Sequoia National Forest", "Sherwood Forest", "Nilgiri Forest",
-    "Kanha Tiger Reserve", "Bandipur Forest", "Nallamala Forest",
-    "Great Bear Rainforest", "Borneo Rainforest", "Yakushima Forest",
-    "Satpura Forest", "Periyar Forest", "Kaziranga Forest"
+    "Sherwood Forest", "Sequoia National Forest", "Nilgiri Forest",
+    "Kaziranga Forest", "Bandipur Forest", "Borneo Rainforest",
+    "Satpura Forest", "Periyar Forest", "Great Bear Rainforest"
 ]
 
+# ================================================================
+# SIDEBAR NAV
+# ================================================================
+with st.sidebar:
+    st.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>", unsafe_allow_html=True)
+    menu = st.radio("Navigation", [
+        "Prediction Dashboard", "EDA Analytics", "Danger Calculator", "Dataset Explorer", "Project Report"
+    ], key="nav")
 
-# ============================================
-# PAGE 1: PREDICTION DASHBOARD
-# ============================================
+
+# ================================================================
+# PAGE: PREDICTION DASHBOARD
+# ================================================================
 if menu == "Prediction Dashboard":
 
     st.markdown("<div class='main-title'>AI-Based Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
 
-    # 🌲 Auto-suggestion search box
+    # ------------------------------------------------------------
+    # Auto Suggest Forest Search
+    # ------------------------------------------------------------
     query = st.text_input("Search Forest Name (Type 1–2 letters)", "")
 
-    if query.strip() == "":
-        filtered_forests = forest_list
-    else:
-        filtered_forests = [f for f in forest_list if query.lower() in f.lower()]
+    filtered = [f for f in forest_list if query.lower() in f.lower()] if query else []
 
-    forest = st.selectbox("Select Forest", filtered_forests)
+    selected_forest = st.session_state.get("selected_forest", "")
 
+    if query:
+        st.write("### 🔍 Suggestions:")
+        for f in filtered:
+            if st.button(f"🌲 {f}", key=f):
+                st.session_state["selected_forest"] = f
+                selected_forest = f
+
+    if selected_forest:
+        st.success(f"Selected Forest: **{selected_forest}**")
+
+    forest = selected_forest if selected_forest else query
+
+    # ------------------------------------------------------------
+    # Predict Button
+    # ------------------------------------------------------------
     if st.button("Predict Fire Risk", use_container_width=True):
+
+        if forest == "":
+            st.error("Please select a valid forest.")
+            st.stop()
 
         lat, lon = geocode_forest(forest)
 
         if lat is None:
-            st.error("Forest not found in geocoding database.")
+            st.error("Forest not found. Try another name.")
             st.stop()
 
         df = generate_environment(lat, lon)
@@ -199,12 +204,12 @@ if menu == "Prediction Dashboard":
         pred = int(model.predict(scaled)[0])
 
         st.subheader("📍 Location")
-        st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
+        st.map(pd.DataFrame({"lat":[lat], "lon":[lon]}))
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f}°C")
-        c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f}%")
-        c3.metric("Wind Speed", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
+        c1,c2,c3 = st.columns(3)
+        c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
+        c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
+        c3.metric("Wind", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
 
         if pred == 1:
             st.markdown("<div class='pred-high'>🔥 HIGH FIRE RISK</div>", unsafe_allow_html=True)
@@ -220,10 +225,9 @@ if menu == "Prediction Dashboard":
         with st.expander("♡ Safety Recommendations (AI)"):
             st.write(ai_recommend(pred))
 
-
-# ============================================
+# ================================================================
 # OTHER PAGES
-# ============================================
+# ================================================================
 elif menu == "EDA Analytics":
     try:
         import fire_pages.eda_page as p
