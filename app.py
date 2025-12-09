@@ -126,7 +126,7 @@ with st.sidebar:
 # ================================================================
 if menu == "Prediction Dashboard":
 
-    st.markdown("<div class='main-title'>AI-Based Forest Fire Predictor</div>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>", unsafe_allow_html=True)
 
     # ================ PERFECT SEARCH + AUTOCOMPLETE ===================
     typed = st.text_input("Search Forest Name")
