@@ -8,7 +8,7 @@ from groq import Groq
 # ================================================================
 # API KEYS
 # ================================================================
-LOCATIONIQ_API_KEY = "a7271ad912be4dd1b3db39fe46004c09"     # NEW - YOUR MAPS + GEOCODING
+OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
 GROQ_API_KEY = "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"
 
 groq_client = Groq(api_key=GROQ_API_KEY)
@@ -25,47 +25,25 @@ st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_ic
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder_dict = joblib.load("encoders.pkl")
+    encoder_dict = joblib.load("encoders.pkl")      # your one-hot dictionary
     feature_cols = joblib.load("feature_columns.pkl")
     return model, scaler, encoder_dict, feature_cols
 
 model, scaler, encoder_dict, feature_cols = load_all()
+
+# convert encoder dict → exact list of one-hot columns
 encoder_cols = list(encoder_dict.keys())
 
 # ================================================================
-# LOCATIONIQ GEOCODING
+# HELPER FUNCTIONS
 # ================================================================
 def geocode_forest(name):
-    url = f"https://us1.locationiq.com/v1/search?key={LOCATIONIQ_API_KEY}&q={name}&format=json"
+    url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
     r = requests.get(url).json()
-
-    if isinstance(r, dict) and r.get("error"):
+    if r.get("total_results", 0) == 0:
         return None, None
+    return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
-    try:
-        lat = float(r[0]["lat"])
-        lon = float(r[0]["lon"])
-        return lat, lon
-    except:
-        return None, None
-
-# ================================================================
-# LOCATIONIQ STATIC MAP
-# ================================================================
-def show_static_map(lat, lon):
-    map_url = (
-        f"https://maps.locationiq.com/v3/staticmap?"
-        f"key={LOCATIONIQ_API_KEY}"
-        f"&center={lat},{lon}"
-        f"&zoom=8"
-        f"&size=800x500"
-        f"&markers=icon:large-red-cutout|{lat},{lon}"
-    )
-    st.image(map_url, caption="Forest Location (LocationIQ Maps)")
-
-# ================================================================
-# ENVIRONMENT GENERATION
-# ================================================================
 def generate_environment(lat, lon):
     temp = 20 + abs(lat % 10)
     hum = 40 + abs(lon % 20)
@@ -92,7 +70,7 @@ def generate_environment(lat, lon):
     }])
 
 # ================================================================
-# AI FUNCTIONS
+# AI FUNCTIONS (Groq)
 # ================================================================
 def groq_ai(prompt):
     try:
@@ -105,8 +83,10 @@ def groq_ai(prompt):
     except Exception as e:
         return f"AI unavailable. (Error: {e})"
 
+
 def ai_forest_profile(forest):
     return groq_ai(f"Give a 5-line overview about the forest '{forest}'.")
+
 
 def ai_fire_explanation(df, pred, forest):
     return groq_ai(
@@ -119,50 +99,28 @@ def ai_recommend(pred):
         f"Give 5 safety recommendations for {'high' if pred else 'low'} fire risk."
     )
 
+
 # ================================================================
 # FOREST LIST
 # ================================================================
-# ================================================================
-# FIXED HYBRID GEOCODING (LocationIQ + Manual Fallback)
-# ================================================================
-forest_coordinates = {
-    "Amazon": (-3.4653, -62.2159),
-    "Amazon Rainforest": (-3.4653, -62.2159),
-    "Congo Rainforest": (-1.4419, 15.5560),
-    "Borneo Rainforest": (0.9619, 114.5548),
-    "Great Bear Rainforest": (52.0, -127.5),
-    "Sundarbans": (21.9497, 89.1833),
-    "Jim Corbett Forest": (29.5300, 78.7740),
-    "Gir Forest": (21.1240, 70.8240),
-    "Black Forest": (48.1000, 8.2000),
-    "Daintree Rainforest": (-16.1700, 145.4185),
-    "Sherwood Forest": (53.2000, -1.0667),
-    "Sequoia National Forest": (36.2950, -118.5640),
-    "Nilgiri Forest": (11.4916, 76.7337),
-    "Kaziranga Forest": (26.5775, 93.1711),
-    "Bandipur Forest": (11.6577, 76.6295),
-    "Satpura Forest": (22.5021, 78.3495),
-    "Periyar Forest": (9.4669, 77.1560)
-}
-
-def geocode_forest(name):
-    # 1) If forest in fallback list → return saved coordinates
-    if name in forest_coordinates:
-        return forest_coordinates[name]
-
-    # 2) Else try LocationIQ normally
-    url = f"https://us1.locationiq.com/v1/search?key={LOCATIONIQ_API_KEY}&q={name}&format=json"
-    r = requests.get(url).json()
-
-    if isinstance(r, dict) and r.get("error"):
-        return None, None
-
-    try:
-        lat = float(r[0]["lat"])
-        lon = float(r[0]["lon"])
-        return lat, lon
-    except:
-        return None, None
+forest_list = [
+    "Amazon",
+    "Sundarbans",
+    "Jim Corbett Forest",
+    "Gir Forest",
+    "Black Forest",
+    "Congo Rainforest",
+    "Daintree Rainforest",
+    "Sherwood Forest",
+    "Sequoia National Forest",
+    "Nilgiri Forest",
+    "Kaziranga Forest",
+    "Bandipur Forest",
+    "Borneo Rainforest",
+    "Satpura Forest",
+    "Periyar Forest",
+    "Great Bear Rainforest"
+]
 
 # ================================================================
 # SIDEBAR NAVIGATION
@@ -170,47 +128,53 @@ def geocode_forest(name):
 with st.sidebar:
     st.title("🔥 Fire Prediction Suite")
     menu = st.radio("Navigation", [
-        "Prediction Dashboard", "EDA Analytics",
-        "Danger Calculator", "Dataset Explorer", "Project Report"
+        "Prediction Dashboard", "EDA Analytics", "Danger Calculator",
+        "Dataset Explorer", "Project Report"
     ])
 
 # ================================================================
-# DASHBOARD
+# PREDICTION DASHBOARD
 # ================================================================
 if menu == "Prediction Dashboard":
 
     st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>", unsafe_allow_html=True)
 
-    forest = st.selectbox("Select Forest", list(forest_coordinates.keys()))
+    # ================ PERFECT SEARCH + AUTOCOMPLETE ===================
+    forest = st.selectbox("Select Forest", forest_list)
 
 
+    # ================================================================
+    # PREDICT BUTTON
+    # ================================================================
     if st.button("Predict Fire Risk", use_container_width=True):
 
         lat, lon = geocode_forest(forest)
-
         if lat is None:
             st.error("Forest not found.")
             st.stop()
 
         df = generate_environment(lat, lon)
 
-        # One-hot encoding
+        # ================ FIXED ONE-HOT ENCODING ===================
         df_oh = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
 
-        # ensure all required encoder columns exist
+        # ensure all columns exist
         for col in encoder_cols:
-            df_oh[col] = df_oh.get(col, 0)
+            if col not in df_oh.columns:
+                df_oh[col] = 0
 
         df = pd.concat([df.drop(columns=["landcover_class"]), df_oh[encoder_cols]], axis=1)
+
         df = df.reindex(columns=feature_cols)
 
         pred = int(model.predict(df)[0])
 
-        # MAP DISPLAY (NEW)
-        st.subheader("📍 Location on Map")
-        show_static_map(lat, lon)
+        # ============================================================
+        # OUTPUT UI
+        # ============================================================
+        st.subheader("📍 Location")
+        st.map(pd.DataFrame({"lat":[lat], "lon":[lon]}))
 
-        # METRICS
         c1, c2, c3 = st.columns(3)
         c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
         c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
@@ -231,7 +195,7 @@ if menu == "Prediction Dashboard":
             st.write(ai_recommend(pred))
 
 # ================================================================
-# EXTRA PAGES
+# OTHER PAGES
 # ================================================================
 elif menu == "EDA Analytics":
     import fire_pages.eda_page as p
