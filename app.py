@@ -122,13 +122,47 @@ def ai_recommend(pred):
 # ================================================================
 # FOREST LIST
 # ================================================================
-forest_list = [
-    "Amazon", "Sundarbans", "Jim Corbett Forest", "Gir Forest",
-    "Black Forest", "Congo Rainforest", "Daintree Rainforest",
-    "Sherwood Forest", "Sequoia National Forest", "Nilgiri Forest",
-    "Kaziranga Forest", "Bandipur Forest", "Borneo Rainforest",
-    "Satpura Forest", "Periyar Forest", "Great Bear Rainforest"
-]
+# ================================================================
+# FIXED HYBRID GEOCODING (LocationIQ + Manual Fallback)
+# ================================================================
+forest_coordinates = {
+    "Amazon": (-3.4653, -62.2159),
+    "Amazon Rainforest": (-3.4653, -62.2159),
+    "Congo Rainforest": (-1.4419, 15.5560),
+    "Borneo Rainforest": (0.9619, 114.5548),
+    "Great Bear Rainforest": (52.0, -127.5),
+    "Sundarbans": (21.9497, 89.1833),
+    "Jim Corbett Forest": (29.5300, 78.7740),
+    "Gir Forest": (21.1240, 70.8240),
+    "Black Forest": (48.1000, 8.2000),
+    "Daintree Rainforest": (-16.1700, 145.4185),
+    "Sherwood Forest": (53.2000, -1.0667),
+    "Sequoia National Forest": (36.2950, -118.5640),
+    "Nilgiri Forest": (11.4916, 76.7337),
+    "Kaziranga Forest": (26.5775, 93.1711),
+    "Bandipur Forest": (11.6577, 76.6295),
+    "Satpura Forest": (22.5021, 78.3495),
+    "Periyar Forest": (9.4669, 77.1560)
+}
+
+def geocode_forest(name):
+    # 1) If forest in fallback list → return saved coordinates
+    if name in forest_coordinates:
+        return forest_coordinates[name]
+
+    # 2) Else try LocationIQ normally
+    url = f"https://us1.locationiq.com/v1/search?key={LOCATIONIQ_API_KEY}&q={name}&format=json"
+    r = requests.get(url).json()
+
+    if isinstance(r, dict) and r.get("error"):
+        return None, None
+
+    try:
+        lat = float(r[0]["lat"])
+        lon = float(r[0]["lon"])
+        return lat, lon
+    except:
+        return None, None
 
 # ================================================================
 # SIDEBAR NAVIGATION
