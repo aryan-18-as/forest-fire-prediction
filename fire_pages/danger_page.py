@@ -8,8 +8,8 @@ def run():
 
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder = joblib.load("encoder.pkl")
-    feature_cols = joblib.load("feature_columns_1.pkl")
+    encoder = joblib.load("encoders.pkl")
+    feature_cols = joblib.load("feature_columns.pkl")
 
     st.subheader("Enter Environmental Conditions")
 
