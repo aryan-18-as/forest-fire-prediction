@@ -220,14 +220,99 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    st.subheader("🌲 Forest Overview (AI)")
-    st.write(ai_forest_profile(forest))
+  # 🌲 Forest Overview (AI)
+st.markdown("""
+<div style="
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px 25px;
+    margin-top: 25px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+">
+    <h2 style="color:#00e676; font-weight:800; margin-bottom:10px;">🌲 Forest Overview (AI)</h2>
+</div>
+""", unsafe_allow_html=True)
 
-    st.subheader("🧠 AI Explanation")
-    st.write(ai_fire_explanation(df, pred, forest))
+st.markdown(f"""
+<div style="
+    background: rgba(0, 0, 0, 0.30);
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 4px solid #00e676;
+    font-size:18px;
+    line-height:1.5;
+    color:white;
+    margin-bottom: 20px;
+">
+{ai_forest_profile(forest)}
+</div>
+""", unsafe_allow_html=True)
 
-    with st.expander("♡ Safety Recommendations (AI)"):
-    st.write(ai_recommend(pred))
+
+# 🧠 AI Explanation
+st.markdown("""
+<div style="
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px 25px;
+    margin-top: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+">
+    <h2 style="color:#40c4ff; font-weight:800; margin-bottom:10px;">🧠 AI Explanation</h2>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div style="
+    background: rgba(0, 0, 0, 0.30);
+    padding: 18px;
+    border-radius: 12px;
+    border-left: 4px solid #40c4ff;
+    font-size:18px;
+    line-height:1.5;
+    color:white;
+    margin-bottom: 20px;
+">
+{ai_fire_explanation(df, pred, forest)}
+</div>
+""", unsafe_allow_html=True)
+
+
+# ❤️ Safety Recommendations
+st.markdown("""
+<div style="
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px 25px;
+    margin-top: 20px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+">
+    <h2 style="color:#ff8a80; font-weight:800; margin-bottom:10px;">♡ Safety Recommendations (AI)</h2>
+</div>
+""", unsafe_allow_html=True)
+
+
+with st.expander("Click to view recommendations"):
+    st.markdown(f"""
+    <div style="
+        background: rgba(0, 0, 0, 0.30);
+        padding: 18px;
+        border-radius: 12px;
+        border-left: 4px solid #ff8a80;
+        font-size:18px;
+        line-height:1.5;
+        color:white;
+    ">
+    {ai_recommend(pred)}
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ================================================================
 # OTHER PAGES
