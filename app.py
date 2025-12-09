@@ -179,11 +179,46 @@ if menu == "Prediction Dashboard":
         c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
         c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
         c3.metric("Wind", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
+if pred == 1:
+    st.markdown("""
+        <div style="
+            padding:28px;
+            border-radius:18px;
+            text-align:center;
+            font-size:36px;
+            font-weight:900;
+            color:white;
+            background: linear-gradient(135deg, #ff0000, #ff5722);
+            box-shadow:0 0 25px rgba(255, 0, 0, 0.7);
+            animation: pulse 1.5s infinite;
+        ">
+            🔥🔥 HIGH FIRE RISK 🔥🔥
+        </div>
 
-        if pred == 1:
-            st.markdown("<div class='pred-high'>🔥 HIGH FIRE RISK</div>", unsafe_allow_html=True)
-        else:
-            st.markdown("<div class='pred-low'>🌿 LOW FIRE RISK</div>", unsafe_allow_html=True)
+        <style>
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow:0 0 20px rgba(255,0,0,0.7); }
+            50% { transform: scale(1.05); box-shadow:0 0 35px rgba(255,50,0,0.9); }
+            100% { transform: scale(1); box-shadow:0 0 20px rgba(255,0,0,0.7); }
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+else:
+    st.markdown("""
+        <div style="
+            padding:28px;
+            border-radius:18px;
+            text-align:center;
+            font-size:36px;
+            font-weight:900;
+            color:#003d1f;
+            background: linear-gradient(135deg, #b2f7e9, #7effb2);
+            box-shadow:0 0 18px rgba(0, 200, 100, 0.5);
+        ">
+            🌿 SAFE — LOW FIRE RISK 🌿
+        </div>
+    """, unsafe_allow_html=True)
 
         st.subheader("🌲 Forest Overview (AI)")
         st.write(ai_forest_profile(forest))
