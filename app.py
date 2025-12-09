@@ -312,10 +312,8 @@ with st.expander("Click to view recommendations"):
     {ai_recommend(pred)}
     </div>
     """, unsafe_allow_html=True)
-
-
 # ================================================================
-# OTHER PAGES
+# EXTRA PAGES
 # ================================================================
 elif menu == "EDA Analytics":
     import fire_pages.eda_page as p
@@ -332,4 +330,3 @@ elif menu == "Dataset Explorer":
 elif menu == "Project Report":
     import fire_pages.report_page as p
     p.run()
-
