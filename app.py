@@ -181,7 +181,7 @@ if menu == "Prediction Dashboard":
 
     st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>", unsafe_allow_html=True)
 
-    forest = st.selectbox("Select Forest", forest_list)
+    forest = st.selectbox("Select Forest", forest_coordinates)
 
     if st.button("Predict Fire Risk", use_container_width=True):
 
