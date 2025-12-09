@@ -17,7 +17,7 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # ================================================================
 # PAGE CONFIG
 # ================================================================
-st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_icon="🔥")
+st.set_page_config(page_title="AI Forest Fire Predictor", page_icon="🔥", layout="wide")
 
 # ================================================================
 # CUSTOM CSS
@@ -26,9 +26,7 @@ st.markdown("""
 <style>
 [data-testid="stSidebar"] { background:#1e1e1e; color:white; }
 
-.sidebar-title {
-    font-size:26px; font-weight:800; padding:15px 5px; color:white;
-}
+.sidebar-title { font-size:26px; font-weight:800; padding:15px 5px; color:white; }
 
 .main-title {
     font-size:40px; font-weight:900; text-align:center;
@@ -38,7 +36,8 @@ st.markdown("""
 
 .pred-high {
     padding:28px; border-radius:16px;
-    text-align:center; font-size:32px; font-weight:800; color:white;
+    text-align:center; font-size:32px; font-weight:800;
+    color:white;
     background:linear-gradient(135deg,#ff512f,#dd2476);
     box-shadow:0 4px 18px rgba(255,60,60,0.45); margin-top:25px;
 }
@@ -59,7 +58,7 @@ st.markdown("""
 def load_all():
     model = joblib.load("fire_model.pkl")
     scaler = joblib.load("scaler (2).pkl")
-    encoder = joblib.load("encoders.pkl")
+    encoder = joblib.load("encoders.pkl")         # list of one-hot columns
     feature_cols = joblib.load("feature_columns.pkl")
     return model, scaler, encoder, feature_cols
 
@@ -102,7 +101,7 @@ def generate_environment(lat, lon):
     }])
 
 # ================================================================
-# AI FUNCTIONS (Groq)
+# AI FUNCTIONS USING GROQ (llama-3.3-70b-versatile)
 # ================================================================
 def groq_ai(prompt):
     try:
@@ -114,6 +113,7 @@ def groq_ai(prompt):
         return resp.choices[0].message.content.strip()
     except Exception as e:
         return f"AI unavailable. (Error: {e})"
+
 
 def ai_forest_profile(forest):
     return groq_ai(
@@ -142,14 +142,14 @@ forest_list = [
 ]
 
 # ================================================================
-# SIDEBAR NAV
+# SIDEBAR NAVIGATION
 # ================================================================
 with st.sidebar:
     st.markdown("<div class='sidebar-title'>🔥 Fire Prediction Suite</div>", unsafe_allow_html=True)
     menu = st.radio("Navigation", [
-        "Prediction Dashboard", "EDA Analytics", "Danger Calculator", "Dataset Explorer", "Project Report"
+        "Prediction Dashboard", "EDA Analytics", "Danger Calculator",
+        "Dataset Explorer", "Project Report"
     ], key="nav")
-
 
 # ================================================================
 # PAGE: PREDICTION DASHBOARD
@@ -158,51 +158,40 @@ if menu == "Prediction Dashboard":
 
     st.markdown("<div class='main-title'>AI-Based Forest Fire Risk Predictor</div>", unsafe_allow_html=True)
 
-    # ------------------------------------------------------------
-    # Auto Suggest Forest Search
-    # ------------------------------------------------------------
-    query = st.text_input("Search Forest Name (Type 1–2 letters)", "")
+    # --------------------------- SEARCH + DROPDOWN ---------------------------
+    query = st.text_input("Search Forest Name")
 
-    filtered = [f for f in forest_list if query.lower() in f.lower()] if query else []
+    matches = [f for f in forest_list if query.lower() in f.lower()] if query else forest_list
 
-    selected_forest = st.session_state.get("selected_forest", "")
+    forest = st.selectbox("Select Forest", matches)
 
-    if query:
-        st.write("### 🔍 Suggestions:")
-        for f in filtered:
-            if st.button(f"🌲 {f}", key=f):
-                st.session_state["selected_forest"] = f
-                selected_forest = f
-
-    if selected_forest:
-        st.success(f"Selected Forest: **{selected_forest}**")
-
-    forest = selected_forest if selected_forest else query
-
-    # ------------------------------------------------------------
-    # Predict Button
-    # ------------------------------------------------------------
+    # ------------------------------- PREDICT -------------------------------
     if st.button("Predict Fire Risk", use_container_width=True):
 
-        if forest == "":
-            st.error("Please select a valid forest.")
-            st.stop()
-
         lat, lon = geocode_forest(forest)
-
         if lat is None:
             st.error("Forest not found. Try another name.")
             st.stop()
 
         df = generate_environment(lat, lon)
 
-        df["landcover_class_encoded"] = encoder.transform(["Deciduous Forest"])
-        df = df.drop(columns=["landcover_class"])
+        # ---------------------------------------------------------
+        # FIX: Proper one-hot encoding using encoder.pkl
+        # ---------------------------------------------------------
+        df_encoded = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
+
+        for col in encoder:
+            if col not in df_encoded.columns:
+                df_encoded[col] = 0
+
+        df = pd.concat([df.drop(columns=["landcover_class"]), df_encoded[encoder]], axis=1)
+
         df = df.reindex(columns=feature_cols)
 
         scaled = scaler.transform(df)
         pred = int(model.predict(scaled)[0])
 
+        # ------------------------- OUTPUTS -------------------------
         st.subheader("📍 Location")
         st.map(pd.DataFrame({"lat":[lat], "lon":[lon]}))
 
@@ -214,7 +203,7 @@ if menu == "Prediction Dashboard":
         if pred == 1:
             st.markdown("<div class='pred-high'>🔥 HIGH FIRE RISK</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='pred-low'>🌿 NO FIRE RISK</div>", unsafe_allow_html=True)
+            st.markdown("<div class='pred-low'>🌿 LOW FIRE RISK</div>", unsafe_allow_html=True)
 
         st.subheader("🌲 Forest Overview (AI)")
         st.write(ai_forest_profile(forest))
