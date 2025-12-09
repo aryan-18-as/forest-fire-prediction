@@ -223,11 +223,11 @@ else:
     st.subheader("🌲 Forest Overview (AI)")
     st.write(ai_forest_profile(forest))
 
-     st.subheader("🧠 AI Explanation")
-     st.write(ai_fire_explanation(df, pred, forest))
+    st.subheader("🧠 AI Explanation")
+    st.write(ai_fire_explanation(df, pred, forest))
 
     with st.expander("♡ Safety Recommendations (AI)"):
-     st.write(ai_recommend(pred))
+    st.write(ai_recommend(pred))
 
 # ================================================================
 # OTHER PAGES
