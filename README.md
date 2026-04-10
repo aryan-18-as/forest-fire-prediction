@@ -73,8 +73,8 @@ Model & preprocessing files used:
 
 ## 👥 Team
 - **Aryan Saxena (BETN1CS22163)**  
-- **Amaan Haque (BETN1CS22100)**  
-- **Kuldeep Rana (BETN1CS22040)**  
+- **Sneha Jain (BETN1CS22172)**  
+- **Vanshita Shrivastava (BETN1CS22182)**  
 
 ### Guide:
 - **Nidhi Dandotiya**
