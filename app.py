@@ -1,17 +1,19 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import requests
 import joblib
 from groq import Groq
 
 # ============================================================
-# API KEYS (PUT YOUR KEYS HERE)
+# 🔑 PUT YOUR GROQ API KEY HERE (OPTIONAL)
 # ============================================================
-OPENCAGE_API_KEY = "95df23a7370340468757cad17a479691"
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "YOUR_GROQ_KEY"  # If not available, app still works
 
-groq_client = Groq(api_key=GROQ_API_KEY)
+# Safe Groq init
+try:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+except:
+    groq_client = None
 
 # ============================================================
 # PAGE CONFIG
@@ -37,53 +39,32 @@ model, scaler, encoder_dict, feature_cols = load_all()
 encoder_cols = list(encoder_dict.keys())
 
 # ============================================================
-# FOREST LIST (FULL)
+# 🌍 FOREST LIST + COORDINATES (NO API NEEDED)
 # ============================================================
-forest_list = [
-    "Amazon Rainforest Brazil",
-    "Sundarbans India",
-    "Jim Corbett National Park India",
-    "Gir National Park India",
-    "Black Forest Germany",
-    "Congo Rainforest Africa",
-    "Daintree Rainforest Australia",
-    "Sherwood Forest England",
-    "Sequoia National Park USA",
-    "Nilgiri Forest India",
-    "Kaziranga National Park India",
-    "Bandipur National Park India",
-    "Borneo Rainforest Indonesia",
-    "Satpura National Park India",
-    "Periyar National Park India",
-    "Great Bear Rainforest Canada"
-]
-
-# ============================================================
-# FALLBACK COORDINATES
-# ============================================================
-fallback_coords = {
+forest_data = {
     "Amazon Rainforest Brazil": (-3.4653, -62.2159),
     "Sundarbans India": (21.9497, 89.1833),
     "Jim Corbett National Park India": (29.5300, 78.7747),
     "Gir National Park India": (21.1240, 70.8245),
+    "Black Forest Germany": (48.0000, 8.0000),
+    "Congo Rainforest Africa": (-2.8797, 23.6560),
+    "Daintree Rainforest Australia": (-16.1700, 145.4180),
+    "Sherwood Forest England": (53.2000, -1.0667),
+    "Sequoia National Park USA": (36.4864, -118.5658),
+    "Nilgiri Forest India": (11.4102, 76.6950),
+    "Kaziranga National Park India": (26.5775, 93.1711),
+    "Bandipur National Park India": (11.6586, 76.6293),
+    "Borneo Rainforest Indonesia": (0.9619, 114.5548),
+    "Satpura National Park India": (22.5420, 78.3450),
+    "Periyar National Park India": (9.4627, 77.2367),
+    "Great Bear Rainforest Canada": (52.5000, -128.0000)
 }
 
+forest_list = list(forest_data.keys())
+
 # ============================================================
-# FUNCTIONS
+# 🔥 GENERATE ENVIRONMENT DATA
 # ============================================================
-def geocode_forest(name):
-    try:
-        url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
-        r = requests.get(url).json()
-
-        if r.get("total_results", 0) > 0:
-            return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
-
-        return fallback_coords.get(name, (None, None))
-    except:
-        return fallback_coords.get(name, (None, None))
-
-
 def generate_environment(lat, lon):
     temp = 20 + abs(lat % 10)
     hum = 40 + abs(lon % 20)
@@ -110,33 +91,36 @@ def generate_environment(lat, lon):
     }])
 
 # ============================================================
-# AI FUNCTIONS (SAFE)
+# 🤖 AI FUNCTIONS (SAFE)
 # ============================================================
 def groq_ai(prompt):
+    if groq_client is None:
+        return "AI not configured. Please add API key."
+
     try:
         resp = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3
         )
         return resp.choices[0].message.content.strip()
     except:
-        return "⚠️ AI temporarily unavailable (check API key)."
+        return "AI temporarily unavailable."
 
 def ai_forest_profile(forest):
     return groq_ai(f"Give a short overview of {forest}.")
 
-def ai_fire_explanation(df, pred, forest):
+def ai_fire_explanation(pred, forest):
     return groq_ai(f"Explain why fire risk is {'HIGH' if pred else 'LOW'} for {forest}.")
 
 def ai_recommend(pred):
     return groq_ai(f"Give safety tips for {'high' if pred else 'low'} fire risk.")
 
 # ============================================================
-# SIDEBAR
+# 📌 SIDEBAR
 # ============================================================
 with st.sidebar:
     st.title("🔥 Fire Prediction Suite")
+
     menu = st.radio("Navigation", [
         "Prediction Dashboard",
         "EDA Analytics",
@@ -146,7 +130,7 @@ with st.sidebar:
     ])
 
 # ============================================================
-# MAIN PAGE
+# 🏠 MAIN PAGE
 # ============================================================
 if menu == "Prediction Dashboard":
 
@@ -157,14 +141,11 @@ if menu == "Prediction Dashboard":
 
     if st.button("Predict Fire Risk", use_container_width=True):
 
-        lat, lon = geocode_forest(forest)
-
-        if lat is None:
-            st.error("Forest not found!")
-            st.stop()
+        lat, lon = forest_data[forest]
 
         df = generate_environment(lat, lon)
 
+        # Encoding
         df_oh = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
         for col in encoder_cols:
             df_oh[col] = df_oh.get(col, 0)
@@ -174,30 +155,34 @@ if menu == "Prediction Dashboard":
 
         pred = int(model.predict(df)[0])
 
+        # Map
         st.subheader("📍 Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
+        # Metrics
         c1, c2, c3 = st.columns(3)
         c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
         c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
         c3.metric("Wind Speed", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
 
+        # Result UI
         if pred == 1:
             st.error("🔥 HIGH FIRE RISK")
         else:
             st.success("🌿 LOW FIRE RISK")
 
+        # AI Sections
         st.markdown("## 🌲 Forest Overview (AI)")
         st.write(ai_forest_profile(forest))
 
         st.markdown("## 🧠 AI Explanation")
-        st.write(ai_fire_explanation(df, pred, forest))
+        st.write(ai_fire_explanation(pred, forest))
 
         st.markdown("## ⚠️ Safety Recommendations")
         st.write(ai_recommend(pred))
 
 # ============================================================
-# MULTI-PAGE ROUTING
+# 🔀 MULTI PAGE ROUTING
 # ============================================================
 elif menu == "EDA Analytics":
     from fire_pages import eda_page
