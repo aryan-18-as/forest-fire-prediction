@@ -166,8 +166,8 @@ The system successfully demonstrates:
 
 # **9. Team Members**
 - **Aryan Saxena (BETN1CS22163)**  
-- **Amaan Haque (BETN1CS22100)**  
-- **Kuldeep Rana (BETN1CS22040)**  
+- **Sneha Jain (BETN1CS22172)**  
+- **Vanshita Shrivastava (BETN1CS22182)**  
 
 ### **Project Guide**
 **Dr. Manali Shukla**
