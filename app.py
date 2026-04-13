@@ -6,7 +6,7 @@ import joblib
 from groq import Groq
 
 # ============================================================
-# API KEYS
+# API KEYS (REPLACE THESE)
 # ============================================================
 OPENCAGE_API_KEY = "YOUR_OPENCAGE_KEY"
 GROQ_API_KEY = "YOUR_GROQ_KEY"
@@ -16,7 +16,11 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 # ============================================================
 # PAGE CONFIG
 # ============================================================
-st.set_page_config(page_title="AI Forest Fire Predictor", layout="wide", page_icon="🔥")
+st.set_page_config(
+    page_title="AI Forest Fire Predictor",
+    page_icon="🔥",
+    layout="wide"
+)
 
 # ============================================================
 # LOAD MODEL FILES
@@ -33,7 +37,7 @@ model, scaler, encoder_dict, feature_cols = load_all()
 encoder_cols = list(encoder_dict.keys())
 
 # ============================================================
-# FOREST LIST (FIXED FOR API)
+# FOREST LIST (FULL)
 # ============================================================
 forest_list = [
     "Amazon Rainforest Brazil",
@@ -42,20 +46,26 @@ forest_list = [
     "Gir National Park India",
     "Black Forest Germany",
     "Congo Rainforest Africa",
-    "Daintree Rainforest Australia"
+    "Daintree Rainforest Australia",
+    "Sherwood Forest England",
+    "Sequoia National Park USA",
+    "Nilgiri Forest India",
+    "Kaziranga National Park India",
+    "Bandipur National Park India",
+    "Borneo Rainforest Indonesia",
+    "Satpura National Park India",
+    "Periyar National Park India",
+    "Great Bear Rainforest Canada"
 ]
 
 # ============================================================
-# FALLBACK COORDINATES (NO ERROR GUARANTEE)
+# FALLBACK COORDINATES
 # ============================================================
 fallback_coords = {
     "Amazon Rainforest Brazil": (-3.4653, -62.2159),
     "Sundarbans India": (21.9497, 89.1833),
     "Jim Corbett National Park India": (29.5300, 78.7747),
     "Gir National Park India": (21.1240, 70.8245),
-    "Black Forest Germany": (48.0000, 8.0000),
-    "Congo Rainforest Africa": (-2.8797, 23.6560),
-    "Daintree Rainforest Australia": (-16.1700, 145.4180),
 }
 
 # ============================================================
@@ -100,27 +110,27 @@ def generate_environment(lat, lon):
     }])
 
 # ============================================================
-# AI FUNCTIONS
+# AI FUNCTIONS (SAFE)
 # ============================================================
 def groq_ai(prompt):
     try:
         resp = groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.2
+            temperature=0.3
         )
         return resp.choices[0].message.content.strip()
-    except Exception as e:
-        return f"AI unavailable ({e})"
+    except:
+        return "⚠️ AI temporarily unavailable (check API key)."
 
 def ai_forest_profile(forest):
     return groq_ai(f"Give a short overview of {forest}.")
 
 def ai_fire_explanation(df, pred, forest):
-    return groq_ai(f"Explain why fire risk is {'HIGH' if pred else 'LOW'} for {forest} with data {df.to_dict()}")
+    return groq_ai(f"Explain why fire risk is {'HIGH' if pred else 'LOW'} for {forest}.")
 
 def ai_recommend(pred):
-    return groq_ai(f"Give safety recommendations for {'high' if pred else 'low'} fire risk")
+    return groq_ai(f"Give safety tips for {'high' if pred else 'low'} fire risk.")
 
 # ============================================================
 # SIDEBAR
@@ -168,28 +178,30 @@ if menu == "Prediction Dashboard":
         st.subheader("📍 Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
+        # METRICS
         c1, c2, c3 = st.columns(3)
         c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
         c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
         c3.metric("Wind Speed", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
 
+        # RESULT UI
         if pred == 1:
             st.error("🔥 HIGH FIRE RISK")
         else:
             st.success("🌿 LOW FIRE RISK")
 
         # AI OUTPUT
-        st.subheader("🌲 Forest Overview (AI)")
+        st.markdown("## 🌲 Forest Overview (AI)")
         st.write(ai_forest_profile(forest))
 
-        st.subheader("🧠 AI Explanation")
+        st.markdown("## 🧠 AI Explanation")
         st.write(ai_fire_explanation(df, pred, forest))
 
-        st.subheader("⚠️ Safety Recommendations")
+        st.markdown("## ⚠️ Safety Recommendations")
         st.write(ai_recommend(pred))
 
 # ============================================================
-# MULTI-PAGE ROUTING
+# OTHER PAGES (MULTI FILE)
 # ============================================================
 elif menu == "EDA Analytics":
     from fire_pages import eda_page
