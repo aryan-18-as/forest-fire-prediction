@@ -7,7 +7,7 @@ from groq import Groq
 # ============================================================
 # 🔑 PUT YOUR GROQ API KEY HERE (OPTIONAL)
 # ============================================================
-GROQ_API_KEY = "YOUR_GROQ_KEY"  # If not available, app still works
+GROQ_API_KEY = "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"  # If not available, app still works
 
 # Safe Groq init
 try:
