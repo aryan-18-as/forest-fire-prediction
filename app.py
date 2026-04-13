@@ -3,6 +3,15 @@ import pandas as pd
 import numpy as np
 import requests
 import joblib
+from groq import Groq
+
+# ============================================================
+# API KEYS
+# ============================================================
+OPENCAGE_API_KEY = "YOUR_OPENCAGE_KEY"
+GROQ_API_KEY = "YOUR_GROQ_KEY"
+
+groq_client = Groq(api_key=GROQ_API_KEY)
 
 # ============================================================
 # PAGE CONFIG
@@ -24,7 +33,7 @@ model, scaler, encoder_dict, feature_cols = load_all()
 encoder_cols = list(encoder_dict.keys())
 
 # ============================================================
-# FOREST LIST (FIXED)
+# FOREST LIST (FIXED FOR API)
 # ============================================================
 forest_list = [
     "Amazon Rainforest Brazil",
@@ -37,7 +46,7 @@ forest_list = [
 ]
 
 # ============================================================
-# FALLBACK COORDINATES
+# FALLBACK COORDINATES (NO ERROR GUARANTEE)
 # ============================================================
 fallback_coords = {
     "Amazon Rainforest Brazil": (-3.4653, -62.2159),
@@ -54,13 +63,11 @@ fallback_coords = {
 # ============================================================
 def geocode_forest(name):
     try:
-        url = f"https://api.opencagedata.com/geocode/v1/json?q={name}"
+        url = f"https://api.opencagedata.com/geocode/v1/json?q={name}&key={OPENCAGE_API_KEY}"
         r = requests.get(url).json()
 
         if r.get("total_results", 0) > 0:
-            lat = r["results"][0]["geometry"]["lat"]
-            lon = r["results"][0]["geometry"]["lng"]
-            return lat, lon
+            return r["results"][0]["geometry"]["lat"], r["results"][0]["geometry"]["lng"]
 
         return fallback_coords.get(name, (None, None))
     except:
@@ -68,22 +75,52 @@ def geocode_forest(name):
 
 
 def generate_environment(lat, lon):
+    temp = 20 + abs(lat % 10)
+    hum = 40 + abs(lon % 20)
+    wind = 2 + (abs(lat + lon) % 5)
+    precip = abs(lat - lon) % 3
+    ndvi = np.clip(hum/100 - 0.3, 0, 1)
+    fwi = wind * (1 - hum/100) * 25
+
     return pd.DataFrame([{
         "latitude": lat,
         "longitude": lon,
-        "temperature_c": 25,
-        "humidity_pct": 50,
-        "wind_speed_m_s": 5,
-        "precip_mm": 1,
-        "ndvi": 0.5,
-        "fwi_score": 10,
-        "drought_code": 30,
+        "temperature_c": temp,
+        "humidity_pct": hum,
+        "wind_speed_m_s": wind,
+        "precip_mm": precip,
+        "ndvi": ndvi,
+        "fwi_score": fwi,
+        "drought_code": max(20, (temp*2)-precip),
         "forest_cover_pct": 70,
         "landcover_class": "Deciduous Forest",
         "elevation_m": 300,
         "slope_deg": 12,
         "population_density": 18
     }])
+
+# ============================================================
+# AI FUNCTIONS
+# ============================================================
+def groq_ai(prompt):
+    try:
+        resp = groq_client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        return f"AI unavailable ({e})"
+
+def ai_forest_profile(forest):
+    return groq_ai(f"Give a short overview of {forest}.")
+
+def ai_fire_explanation(df, pred, forest):
+    return groq_ai(f"Explain why fire risk is {'HIGH' if pred else 'LOW'} for {forest} with data {df.to_dict()}")
+
+def ai_recommend(pred):
+    return groq_ai(f"Give safety recommendations for {'high' if pred else 'low'} fire risk")
 
 # ============================================================
 # SIDEBAR
@@ -99,15 +136,16 @@ with st.sidebar:
     ])
 
 # ============================================================
-# PAGE 1: PREDICTION DASHBOARD
+# MAIN PAGE
 # ============================================================
 if menu == "Prediction Dashboard":
 
-    st.title("🔥 AI-Based Forest Fire Predictor")
+    st.markdown("<h1 style='text-align:center;color:#ff3366;'>AI-Based Forest Fire Predictor</h1>",
+                unsafe_allow_html=True)
 
     forest = st.selectbox("Select Forest", forest_list)
 
-    if st.button("Predict Fire Risk"):
+    if st.button("Predict Fire Risk", use_container_width=True):
 
         lat, lon = geocode_forest(forest)
 
@@ -117,9 +155,7 @@ if menu == "Prediction Dashboard":
 
         df = generate_environment(lat, lon)
 
-        # Encoding
         df_oh = pd.get_dummies(df["landcover_class"], prefix="landcover_class")
-
         for col in encoder_cols:
             df_oh[col] = df_oh.get(col, 0)
 
@@ -128,81 +164,45 @@ if menu == "Prediction Dashboard":
 
         pred = int(model.predict(df)[0])
 
+        # MAP
         st.subheader("📍 Location")
         st.map(pd.DataFrame({"lat": [lat], "lon": [lon]}))
 
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
-        col2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
-        col3.metric("Wind Speed", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Temperature", f"{df.temperature_c.iloc[0]:.2f} °C")
+        c2.metric("Humidity", f"{df.humidity_pct.iloc[0]:.2f} %")
+        c3.metric("Wind Speed", f"{df.wind_speed_m_s.iloc[0]:.2f} m/s")
 
         if pred == 1:
             st.error("🔥 HIGH FIRE RISK")
         else:
             st.success("🌿 LOW FIRE RISK")
 
+        # AI OUTPUT
+        st.subheader("🌲 Forest Overview (AI)")
+        st.write(ai_forest_profile(forest))
+
+        st.subheader("🧠 AI Explanation")
+        st.write(ai_fire_explanation(df, pred, forest))
+
+        st.subheader("⚠️ Safety Recommendations")
+        st.write(ai_recommend(pred))
+
 # ============================================================
-# PAGE 2: EDA ANALYTICS
+# MULTI-PAGE ROUTING
 # ============================================================
 elif menu == "EDA Analytics":
-    st.title("📊 EDA Analytics")
+    from fire_pages import eda_page
+    eda_page.run()
 
-    data = pd.DataFrame({
-        "Temperature": np.random.randint(20, 40, 50),
-        "Humidity": np.random.randint(30, 80, 50),
-        "Wind Speed": np.random.randint(1, 10, 50)
-    })
-
-    st.dataframe(data)
-    st.line_chart(data)
-
-# ============================================================
-# PAGE 3: DANGER CALCULATOR
-# ============================================================
 elif menu == "Danger Calculator":
-    st.title("🔥 Danger Score Calculator")
+    from fire_pages import danger_page
+    danger_page.run()
 
-    temp = st.slider("Temperature (°C)", 0, 50, 25)
-    hum = st.slider("Humidity (%)", 0, 100, 50)
-    wind = st.slider("Wind Speed", 0, 20, 5)
-
-    score = temp * 0.5 + wind * 2 - hum * 0.2
-
-    st.subheader(f"🔥 Danger Score: {score:.2f}")
-
-    if score > 30:
-        st.error("HIGH RISK")
-    else:
-        st.success("LOW RISK")
-
-# ============================================================
-# PAGE 4: DATASET EXPLORER
-# ============================================================
 elif menu == "Dataset Explorer":
-    st.title("📂 Dataset Explorer")
+    from fire_pages import dataset_page
+    dataset_page.run()
 
-    data = pd.DataFrame({
-        "Latitude": np.random.randn(20),
-        "Longitude": np.random.randn(20),
-        "Temp": np.random.randint(20, 40, 20)
-    })
-
-    st.dataframe(data)
-
-# ============================================================
-# PAGE 5: PROJECT REPORT
-# ============================================================
 elif menu == "Project Report":
-    st.title("📘 Project Report")
-
-    st.markdown("""
-    ### AI-Based Forest Fire Prediction System
-
-    This system uses Machine Learning to predict forest fire risk based on environmental factors.
-
-    **Features:**
-    - Fire Risk Prediction  
-    - Data Analysis  
-    - Danger Score Calculator  
-    - Dataset Exploration  
-    """)
+    from fire_pages import report_page
+    report_page.run()
